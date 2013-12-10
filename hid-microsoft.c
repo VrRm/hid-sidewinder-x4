@@ -29,6 +29,7 @@
 #define MS_NOGET		0x10
 #define MS_DUPLICATE_USAGES	0x20
 #define MS_RDESC_3K		0x40
+#define MS_SIDEWINDER	0x80
 
 static __u8 *ms_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 		unsigned int *rsize)
@@ -95,6 +96,75 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
+static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
+		unsigned long **bit, int *max)
+{
+	int profile = 1;
+	set_bit(EV_REP, hi->input->evbit);
+	switch (usage->hid & HID_USAGE) {
+	case 0xfd15:
+		profile = profile + 1;
+		break;
+	case 0xfb01: /* S1 */
+		switch (profile) {
+			case 1: ms_map_key_clear(KEY_F13);	break;
+			case 2: ms_map_key_clear(KEY_F19);	break;
+			case 3: ms_map_key_clear(KEY_FN_F1);	break;
+			default:
+				return 0;
+			}
+		break;
+	case 0xfb02: /* S2 */
+		switch (profile) {
+			case 1: ms_map_key_clear(KEY_F14);	break;
+			case 2: ms_map_key_clear(KEY_F20);	break;
+			case 3: ms_map_key_clear(KEY_FN_F2);	break;
+			default:
+				return 0;
+			}
+		break;
+	case 0xfb03: /* S3 */
+		switch (profile) {
+			case 1: ms_map_key_clear(KEY_F15);	break;
+			case 2: ms_map_key_clear(KEY_F21);	break;
+			case 3: ms_map_key_clear(KEY_FN_F3);	break;
+			default:
+				return 0;
+			}
+		break;
+	case 0xfb04: /* S4 */
+		switch (profile) {
+			case 1: ms_map_key_clear(KEY_F16);	break;
+			case 2: ms_map_key_clear(KEY_F22);	break;
+			case 3: ms_map_key_clear(KEY_FN_F4);	break;
+			default:
+				return 0;
+			}
+		break;
+	case 0xfb05: /* S5 */
+		switch (profile) {
+			case 1: ms_map_key_clear(KEY_F17);	break;
+			case 2: ms_map_key_clear(KEY_F23);	break;
+			case 3: ms_map_key_clear(KEY_FN_F5);	break;
+			default:
+				return 0;
+			}
+		break;
+	case 0xfb06: /* S6 */
+		switch (profile) {
+			case 1: ms_map_key_clear(KEY_F18);	break;
+			case 2: ms_map_key_clear(KEY_F24);	break;
+			case 3: ms_map_key_clear(KEY_FN_F6);	break;
+			default:
+				return 0;
+			}
+		break;
+	default:
+		return 0;
+	}
+	return 1;
+}
+
 static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
@@ -104,14 +174,16 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 	if ((usage->hid & HID_USAGE_PAGE) != HID_UP_MSVENDOR)
 		return 0;
 
-	if (quirks & MS_ERGONOMY) {
-		int ret = ms_ergonomy_kb_quirk(hi, usage, bit, max);
-		if (ret)
-			return ret;
-	}
+	if ((quirks & MS_ERGONOMY) &&
+			ms_ergonomy_kb_quirk(hi, usage, bit, max))
+		return 1;
 
 	if ((quirks & MS_PRESENTER) &&
 			ms_presenter_8k_quirk(hi, usage, bit, max))
+		return 1;
+		
+	if ((quirks & MS_SIDEWINDER) &&
+			ms_sidewinder_kb_quirk(hi, usage, bit, max))
 		return 1;
 
 	return 0;
@@ -194,7 +266,7 @@ static const struct hid_device_id ms_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_SIDEWINDER_GV),
 		.driver_data = MS_HIDINPUT },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_SIDEWINDER_X4),
-		.driver_data = MS_ERGONOMY },
+		.driver_data = MS_SIDEWINDER },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_NE4K),
 		.driver_data = MS_ERGONOMY },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_NE4K_JP),
