@@ -96,76 +96,31 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
+static int ms_sidewinder_profile(int get) {
+	static unsigned int actual_profile = 1;
+	switch (get) {
+	case 0:
+		if (actual_profile < 1 || actual_profile >= 3) return actual_profile = 1;
+		else return ++actual_profile;
+	case 1: return actual_profile;
+	default:
+		return 0;
+	}
+	return actual_profile;
+}
+
 static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
-	int sidewinder_profile = 1; /* Initial profile. Soon to be replaced by sysfs. */
 	set_bit(EV_REP, hi->input->evbit);
 	switch (usage->hid & HID_USAGE) {
-	/* We need sysfs profile switchting here.
-	 * Todo: write function ms_sidewinder_set_profile() and
-	 * ms_sidewinder_get_profile(), then replace sidewinder_profile
-	 * with ms_sidewinder_get_profile(). Talking with the leds is an
-	 * easy task; we will get it done after sysfs.
-	 *
-	 * This is the Bank_Switch button: case 0xfd15.
-	 * 
-	 * Still needing ideas for the Record button.
-	 */
-	case 0xfb01: /* S1 */
-		switch (sidewinder_profile) {
-			case 1: ms_map_key_clear(KEY_F13);	break; /* Bank 1 */
-			case 2: ms_map_key_clear(KEY_F19);	break; /* Bank 2 */
-			case 3: ms_map_key_clear(KEY_FN_F1);	break; /* Bank 3 */
-			default:
-				return 0;
-		}
-		break;
-	case 0xfb02: /* S2 */
-		switch (sidewinder_profile) {
-			case 1: ms_map_key_clear(KEY_F14);	break;
-			case 2: ms_map_key_clear(KEY_F20);	break;
-			case 3: ms_map_key_clear(KEY_FN_F2);	break;
-			default:
-				return 0;
-		}
-		break;
-	case 0xfb03: /* S3 */
-		switch (sidewinder_profile) {
-			case 1: ms_map_key_clear(KEY_F15);	break;
-			case 2: ms_map_key_clear(KEY_F21);	break;
-			case 3: ms_map_key_clear(KEY_FN_F3);	break;
-			default:
-				return 0;
-		}
-		break;
-	case 0xfb04: /* S4 */
-		switch (sidewinder_profile) {
-			case 1: ms_map_key_clear(KEY_F16);	break;
-			case 2: ms_map_key_clear(KEY_F22);	break;
-			case 3: ms_map_key_clear(KEY_FN_F4);	break;
-			default:
-				return 0;
-		}
-		break;
-	case 0xfb05: /* S5 */
-		switch (sidewinder_profile) {
-			case 1: ms_map_key_clear(KEY_F17);	break;
-			case 2: ms_map_key_clear(KEY_F23);	break;
-			case 3: ms_map_key_clear(KEY_FN_F5);	break;
-			default:
-				return 0;
-		}
-		break;
-	case 0xfb06: /* S6 */
-		switch (sidewinder_profile) {
-			case 1: ms_map_key_clear(KEY_F18);	break;
-			case 2: ms_map_key_clear(KEY_F24);	break;
-			case 3: ms_map_key_clear(KEY_FN_F6);	break;
-			default:
-				return 0;
-		}
-		break;
+	case 0xfb01: ms_map_key_clear(KEY_FN_F7);	break;
+	case 0xfb02: ms_map_key_clear(KEY_FN_F8);	break;
+	case 0xfb03: ms_map_key_clear(KEY_FN_F9);	break;
+	case 0xfb04: ms_map_key_clear(KEY_FN_F10);	break;
+	case 0xfb05: ms_map_key_clear(KEY_FN_F11);	break;
+	case 0xfb06: ms_map_key_clear(KEY_FN_F12);	break;
+	case 0xfd15: ms_map_key_clear(KEY_UNKNOWN);	break;
 	default:
 		return 0;
 	}
@@ -238,6 +193,71 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		return 1;
 	}
 
+	/* Sidewinder special button handling & profile switching */
+	if (quirks & MS_SIDEWINDER && (usage->hid == (HID_UP_MSVENDOR | 0xfd15) || usage->hid == (HID_UP_MSVENDOR | 0xfb01) || usage->hid == (HID_UP_MSVENDOR | 0xfb02) || usage->hid == (HID_UP_MSVENDOR | 0xfb03) || usage->hid == (HID_UP_MSVENDOR | 0xfb04) || usage->hid == (HID_UP_MSVENDOR | 0xfb05) || usage->hid == (HID_UP_MSVENDOR | 0xfb06))) {
+		switch (usage->hid ^ HID_UP_MSVENDOR) {
+		case 0xfb01: /* S1 */
+			switch (ms_sidewinder_profile(1)) {
+			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F7, value);	break; /* Bank 1 */
+			case 2: input_event(field->hidinput->input, usage->type, KEY_F13, value);	break; /* Bank 2 */
+			case 3: input_event(field->hidinput->input, usage->type, KEY_F19, value);	break; /* Bank 3 */
+			default:
+				return 0;
+			}
+			break;
+		case 0xfb02: /* S2 */
+			switch (ms_sidewinder_profile(1)) {
+			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F8, value);	break;
+			case 2: input_event(field->hidinput->input, usage->type, KEY_F14, value);	break;
+			case 3: input_event(field->hidinput->input, usage->type, KEY_F20, value);	break;
+			default:
+				return 0;
+			}
+			break;
+		case 0xfb03: /* S3 */
+			switch (ms_sidewinder_profile(1)) {
+			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F9, value);	break; /* Bank 1 */
+			case 2: input_event(field->hidinput->input, usage->type, KEY_F15, value);	break; /* Bank 2 */
+			case 3: input_event(field->hidinput->input, usage->type, KEY_F21, value);	break; /* Bank 3 */
+			default:
+				return 0;
+			}
+			break;
+		case 0xfb04: /* S4 */
+			switch (ms_sidewinder_profile(1)) {
+			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F10, value);	break;
+			case 2: input_event(field->hidinput->input, usage->type, KEY_F16, value);	break;
+			case 3: input_event(field->hidinput->input, usage->type, KEY_F22, value);	break;
+			default:
+				return 0;
+			}
+			break;
+		case 0xfb05: /* S5 */
+			switch (ms_sidewinder_profile(1)) {
+			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F11, value);	break; /* Bank 1 */
+			case 2: input_event(field->hidinput->input, usage->type, KEY_F17, value);	break; /* Bank 2 */
+			case 3: input_event(field->hidinput->input, usage->type, KEY_F23, value);	break; /* Bank 3 */
+			default:
+				return 0;
+			}
+			break;
+		case 0xfb06: /* S6 */
+			switch (ms_sidewinder_profile(1)) {
+			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F12, value);	break;
+			case 2: input_event(field->hidinput->input, usage->type, KEY_F18, value);	break;
+			case 3: input_event(field->hidinput->input, usage->type, KEY_F24, value);	break;
+			default:
+				return 0;
+			}
+			break;
+		case 0xfd15: ms_sidewinder_profile(0);
+		default:
+			return 0;
+		}
+
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -268,6 +288,13 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 err_free:
 	return ret;
 }
+
+/*
+static void ms_remove(struct hid_device *hdev)
+{
+	hid_hw_stop(hdev);
+}
+*/
 
 static const struct hid_device_id ms_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_SIDEWINDER_GV),
@@ -303,6 +330,7 @@ static struct hid_driver ms_driver = {
 	.input_mapped = ms_input_mapped,
 	.event = ms_event,
 	.probe = ms_probe,
+	//.remove = ms_remove
 };
 module_hid_driver(ms_driver);
 

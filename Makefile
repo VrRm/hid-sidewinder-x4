@@ -18,7 +18,7 @@ help:
 	$(MAKE) -C "$(KSDIR)" M="$(PWD)" help
 
 reload:
-	rmmod hid-microsoft --force  || true
+	rmmod hid-microsoft --force || true
 	insmod hid-microsoft.ko
 
 # for development only
