@@ -137,9 +137,10 @@ static int ms_sidewinder_setup(struct hid_device *hdev, int profile)
 	};
 	struct sidewinder_x4_device *device;
 
+	/*
 	struct sidewinder_x4_led
 	{
-		uint8_t unknown; /* always SIDEWINDER_X4_LED_UNKNOWN */
+		uint8_t unknown;
 		uint8_t led;
 	};
 
@@ -152,6 +153,10 @@ static int ms_sidewinder_setup(struct hid_device *hdev, int profile)
 	default:
 		return -EINVAL;
 	}
+	*/
+	uint16_t led;
+	led = 0x0704;
+	profile++;
 
 	if (intf->cur_altsetting->desc.bInterfaceProtocol == USB_INTERFACE_PROTOCOL_KEYBOARD)
 	{
@@ -186,9 +191,10 @@ static int ms_sidewinder_profile(int get) {
 	return actual_profile;
 }
 
-static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
+static int ms_sidewinder_kb_quirk(struct hid_device *hdev, struct hid_input *hi, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
+	ms_sidewinder_setup(hdev, 1);
 	set_bit(EV_REP, hi->input->evbit);
 	switch (usage->hid & HID_USAGE) {
 	case 0xfb01: ms_map_key_clear(KEY_FN_F7);	break;
@@ -222,7 +228,7 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		return 1;
 		
 	if ((quirks & MS_SIDEWINDER) &&
-			ms_sidewinder_kb_quirk(hi, usage, bit, max))
+			ms_sidewinder_kb_quirk(hdev, hi, usage, bit, max))
 		return 1;
 
 	return 0;
@@ -236,14 +242,6 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 
 	if (quirks & MS_DUPLICATE_USAGES)
 		clear_bit(usage->code, *bit);
-
-	return 0;
-}
-
-static int ms_raw_event(struct hid_device *hdev,
-		struct hid_report *report, u8 *data, int size)
-{
-	ms_sidewinder_setup(hdev, 2);
 
 	return 0;
 }
@@ -353,8 +351,6 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 
 	hid_set_drvdata(hdev, (void *)quirks);
 
-	ms_sidewinder_setup(hdev, 1);
-
 	if (quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
 
@@ -375,13 +371,6 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 err_free:
 	return ret;
 }
-
-/*
-static void ms_remove(struct hid_device *hdev)
-{
-	hid_hw_stop(hdev);
-}
-*/
 
 static const struct hid_device_id ms_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_SIDEWINDER_GV),
@@ -417,8 +406,6 @@ static struct hid_driver ms_driver = {
 	.input_mapped = ms_input_mapped,
 	.event = ms_event,
 	.probe = ms_probe,
-	.raw_event = ms_raw_event
-	//.remove = ms_remove
 };
 module_hid_driver(ms_driver);
 
