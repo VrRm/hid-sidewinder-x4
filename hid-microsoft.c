@@ -110,24 +110,24 @@ static int ms_sidewinder_send(struct usb_device *usb_dev, uint usb_command, void
 	// int ret;
 	// int length;
 
-	dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_ATOMIC);
+	urb = usb_alloc_urb(0, GFP_KERNEL);
+	if (!urb)
+		return -ENOMEM;
+
+	dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL);
 	if (!dr)
 		return -ENOMEM;
 
-	dr->bRequestType = 0x21;
-	dr->bRequest = USB_REQ_SET_CONFIGURATION;
-	dr->wValue = 0x307;
-	dr->wIndex = 0x1;
-	dr->wLength = 0x2;
-
-	urb = usb_alloc_urb(0, GFP_ATOMIC);
-	if (!urb)
-		return -ENOMEM;
+	dr->bRequestType = USB_TYPE_CLASS | USB_RECIP_INTERFACE | USB_DIR_OUT;
+	dr->bRequest = 0x09;
+	dr->wValue = cpu_to_le16(0x307);
+	dr->wIndex = cpu_to_le16(0x1);
+	dr->wLength = cpu_to_le16(0x2);
 
 	usb_fill_control_urb(urb, usb_dev, usb_sndctrlpipe(usb_dev, 0), (unsigned char *)dr,
 					data, size, ms_complete, NULL);
 
-	usb_submit_urb(urb, GFP_ATOMIC);	
+	usb_submit_urb(urb, GFP_KERNEL);	
 
 	kfree(dr);
 
@@ -175,7 +175,7 @@ static int ms_sidewinder_led(struct hid_device *hdev, int profile)
 		return 0;
 	}
 
-	device = kzalloc(sizeof(struct sidewinder_x4_device), GFP_ATOMIC);
+	device = kzalloc(sizeof(struct sidewinder_x4_device), GFP_KERNEL);
 	if(!device)
 		return -ENOMEM;
 
@@ -360,6 +360,8 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	int ret;
 
 	hid_set_drvdata(hdev, (void *)quirks);
+
+	ms_sidewinder_led(hdev, 2); /* Debugging LEDs */
 
 	if (quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
