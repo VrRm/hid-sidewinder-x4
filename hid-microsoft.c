@@ -117,7 +117,7 @@ static int ms_sidewinder_send(struct usb_device *usb_dev, uint usb_command, void
 	return ((len < 0) ? len : ((len != size) ? -EIO : 0));
 }
 
-static int ms_sidewinder_setup(struct hid_device *hdev)
+static int ms_sidewinder_setup(struct hid_device *hdev, int profile)
 {
 	struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
 	struct usb_device *usb_dev = interface_to_usbdev(intf);
@@ -143,7 +143,13 @@ static int ms_sidewinder_setup(struct hid_device *hdev)
 
 	struct sidewinder_x4_led led;
 	led.unknown = 0x07;
-	led.led = 0x04;
+	switch(profile) {
+	case 1: led.led = 0x04;	break;
+	case 2: led.led = 0x08;	break;
+	case 3: led.led = 0x10;	break;
+	default:
+		return -EINVAL;
+	}
 
 	if (intf->cur_altsetting->desc.bInterfaceProtocol == USB_INTERFACE_PROTOCOL_KEYBOARD)
 	{
@@ -337,7 +343,7 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 
 	hid_set_drvdata(hdev, (void *)quirks);
 
-	ms_sidewinder_setup(hdev);
+	ms_sidewinder_setup(hdev, 2);
 
 	if (quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
