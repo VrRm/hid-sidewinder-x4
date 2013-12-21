@@ -98,24 +98,40 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
-static int ms_sidewinder_send(struct usb_device *usb_dev, uint usb_command, void const *data, uint size)
+static void ms_complete(struct urb *urb)
 {
-	char *buf;
-	int len;
+	urb = urb;
+}
 
-	buf = kmalloc(size, GFP_KERNEL);
-	if (buf == NULL)
+static int ms_sidewinder_send(struct usb_device *usb_dev, uint usb_command, void *data, uint size)
+{
+	struct urb *urb;
+	struct usb_ctrlrequest *dr;
+	// int ret;
+	// int length;
+
+	dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_ATOMIC);
+	if (!dr)
 		return -ENOMEM;
 
-	memcpy(buf, data, size);
+	dr->bRequestType = 0x21;
+	dr->bRequest = USB_REQ_SET_CONFIGURATION;
+	dr->wValue = 0x307;
+	dr->wIndex = 0x1;
+	dr->wLength = 0x2;
 
-	len = usb_control_msg(usb_dev, usb_sndctrlpipe(usb_dev, 0),
-					USB_REQ_SET_CONFIGURATION,								/* 0x09 */
-					USB_TYPE_CLASS | USB_RECIP_INTERFACE | USB_DIR_OUT,		/* 0x21 */
-					usb_command, 0x1, buf, size, USB_CTRL_SET_TIMEOUT);		/* 0x01 unknown */
+	urb = usb_alloc_urb(0, GFP_ATOMIC);
+	if (!urb)
+		return -ENOMEM;
 
-	kfree(buf);
-	return ((len < 0) ? len : ((len != size) ? -EIO : 0));
+	usb_fill_control_urb(urb, usb_dev, usb_sndctrlpipe(usb_dev, 0), (unsigned char *)dr,
+					data, size, ms_complete, NULL);
+
+	usb_submit_urb(urb, GFP_ATOMIC);	
+
+	kfree(dr);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(ms_sidewinder_send);
 
@@ -159,7 +175,7 @@ static int ms_sidewinder_led(struct hid_device *hdev, int profile)
 		return 0;
 	}
 
-	device = kzalloc(sizeof(struct sidewinder_x4_device), GFP_KERNEL);
+	device = kzalloc(sizeof(struct sidewinder_x4_device), GFP_ATOMIC);
 	if(!device)
 		return -ENOMEM;
 
