@@ -186,10 +186,9 @@ static int ms_sidewinder_profile(int get) {
 	return actual_profile;
 }
 
-static int ms_sidewinder_kb_quirk(struct hid_device *hdev, struct hid_input *hi, struct hid_usage *usage,
+static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
-	ms_sidewinder_led(hdev, 1); /* setting initial LED to 1 */
 	set_bit(EV_REP, hi->input->evbit);
 	switch (usage->hid & HID_USAGE) {
 	case 0xfb01: ms_map_key_clear(KEY_FN_F7);	break;
@@ -223,7 +222,7 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		return 1;
 		
 	if ((quirks & MS_SIDEWINDER) &&
-			ms_sidewinder_kb_quirk(hdev, hi, usage, bit, max))
+			ms_sidewinder_kb_quirk(hi, usage, bit, max))
 		return 1;
 
 	return 0;
