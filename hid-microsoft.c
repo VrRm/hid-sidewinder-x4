@@ -110,16 +110,16 @@ static int ms_sidewinder_send(struct usb_device *usb_dev, uint usb_command, void
 	memcpy(buf, data, size);
 
 	len = usb_control_msg(usb_dev, usb_sndctrlpipe(usb_dev, 0),
-					USB_REQ_SET_CONFIGURATION,								// 0x09
-					USB_TYPE_CLASS | USB_RECIP_INTERFACE | USB_DIR_OUT,		// 0x21
-					usb_command, 0x1, buf, size, USB_CTRL_SET_TIMEOUT);		// 0x01 unknown
+					USB_REQ_SET_CONFIGURATION,								/* 0x09 */
+					USB_TYPE_CLASS | USB_RECIP_INTERFACE | USB_DIR_OUT,		/* 0x21 */
+					usb_command, 0x1, buf, size, USB_CTRL_SET_TIMEOUT);		/* 0x01 unknown */
 
 	kfree(buf);
 	return ((len < 0) ? len : ((len != size) ? -EIO : 0));
 }
 EXPORT_SYMBOL_GPL(ms_sidewinder_send);
 
-static int ms_sidewinder_setup(struct hid_device *hdev, int profile)
+static int ms_sidewinder_led(struct hid_device *hdev, int profile)
 {
 	struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
 	struct usb_device *usb_dev = interface_to_usbdev(intf);
@@ -137,7 +137,6 @@ static int ms_sidewinder_setup(struct hid_device *hdev, int profile)
 	};
 	struct sidewinder_x4_device *device;
 
-	/*
 	struct sidewinder_x4_led
 	{
 		uint8_t unknown;
@@ -153,10 +152,6 @@ static int ms_sidewinder_setup(struct hid_device *hdev, int profile)
 	default:
 		return -EINVAL;
 	}
-	*/
-	uint16_t led;
-	led = 0x0704;
-	profile++;
 
 	if (intf->cur_altsetting->desc.bInterfaceProtocol == USB_INTERFACE_PROTOCOL_KEYBOARD)
 	{
@@ -194,7 +189,7 @@ static int ms_sidewinder_profile(int get) {
 static int ms_sidewinder_kb_quirk(struct hid_device *hdev, struct hid_input *hi, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
-	ms_sidewinder_setup(hdev, 1);
+	ms_sidewinder_led(hdev, 1); /* setting initial LED to 1 */
 	set_bit(EV_REP, hi->input->evbit);
 	switch (usage->hid & HID_USAGE) {
 	case 0xfb01: ms_map_key_clear(KEY_FN_F7);	break;
