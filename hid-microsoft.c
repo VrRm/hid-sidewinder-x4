@@ -240,6 +240,14 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 	return 0;
 }
 
+static int ms_raw_event(struct hid_device *hdev,
+		struct hid_report *report, u8 *data, int size)
+{
+	ms_sidewinder_setup(hdev, 2);
+
+	return 0;
+}
+
 static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		struct hid_usage *usage, __s32 value)
 {
@@ -327,7 +335,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 				return 0;
 			}
 			break;
-		case 0xfd15: ms_sidewinder_setup(hdev, 2);
+		case 0xfd15: ms_sidewinder_profile(0);
 		default:
 			return 0;
 		}
@@ -409,6 +417,7 @@ static struct hid_driver ms_driver = {
 	.input_mapped = ms_input_mapped,
 	.event = ms_event,
 	.probe = ms_probe,
+	.raw_event = ms_raw_event
 	//.remove = ms_remove
 };
 module_hid_driver(ms_driver);
