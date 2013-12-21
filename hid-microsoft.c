@@ -98,14 +98,16 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
-static int ms_sidewinder_send(struct usb_device *usb_dev, uint usb_command, void *data, uint size)
+static int ms_sidewinder_send(struct usb_device *usb_dev, uint usb_command, void const *data, uint size)
 {
-	char * buf;
+	char *buf;
 	int len;
 
-	buf = kmemdup(data, size, GFP_KERNEL);
+	buf = kmalloc(size, GFP_KERNEL);
 	if (buf == NULL)
 		return -ENOMEM;
+
+	memcpy(buf, data, size);
 
 	len = usb_control_msg(usb_dev, usb_sndctrlpipe(usb_dev, 0),
 					USB_REQ_SET_CONFIGURATION,								// 0x09
@@ -113,9 +115,9 @@ static int ms_sidewinder_send(struct usb_device *usb_dev, uint usb_command, void
 					usb_command, 0x1, buf, size, USB_CTRL_SET_TIMEOUT);		// 0x01 unknown
 
 	kfree(buf);
-
 	return ((len < 0) ? len : ((len != size) ? -EIO : 0));
 }
+EXPORT_SYMBOL_GPL(ms_sidewinder_send);
 
 static int ms_sidewinder_setup(struct hid_device *hdev, int profile)
 {
@@ -325,7 +327,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 				return 0;
 			}
 			break;
-		case 0xfd15: ms_sidewinder_profile(0);
+		case 0xfd15: ms_sidewinder_setup(hdev, 2);
 		default:
 			return 0;
 		}
@@ -343,7 +345,7 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 
 	hid_set_drvdata(hdev, (void *)quirks);
 
-	ms_sidewinder_setup(hdev, 2);
+	ms_sidewinder_setup(hdev, 1);
 
 	if (quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
