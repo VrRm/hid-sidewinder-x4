@@ -19,6 +19,8 @@
 #include <linux/input.h>
 #include <linux/hid.h>
 #include <linux/module.h>
+#include <linux/usb.h>
+#include <linux/leds.h>
 
 #include "hid-ids.h"
 
@@ -96,6 +98,72 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
+static int ms_sidewinder_send(struct usb_device *usb_dev, uint usb_command, void *data, uint size)
+{
+	char * buf;
+	int len;
+
+	buf = kmemdup(data, size, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	len = usb_control_msg(usb_dev, usb_sndctrlpipe(usb_dev, 0),
+					USB_REQ_SET_CONFIGURATION,								// 0x09
+					USB_TYPE_CLASS | USB_RECIP_INTERFACE | USB_DIR_OUT,		// 0x21
+					usb_command, 0x1, buf, size, USB_CTRL_SET_TIMEOUT);		// 0x01 unknown
+
+	kfree(buf);
+
+	return ((len < 0) ? len : ((len != size) ? -EIO : 0));
+}
+
+static int ms_sidewinder_setup(struct hid_device *hdev)
+{
+	struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
+	struct usb_device *usb_dev = interface_to_usbdev(intf);
+	int SIDEWINDER_X4_COMMAND_LED = 0x307;
+	struct sidewinder_x4_device
+	{
+		int profile;
+
+		int led_1;
+		int led_2;
+		int led_3;
+		int led_auto;
+
+		struct usb_device *usb_dev;
+	};
+	struct sidewinder_x4_device *device;
+
+	struct sidewinder_x4_led
+	{
+		uint8_t unknown; /* always SIDEWINDER_X4_LED_UNKNOWN */
+		uint8_t led;
+	};
+
+	struct sidewinder_x4_led led;
+	led.unknown = 0x07;
+	led.led = 0x04;
+
+	if (intf->cur_altsetting->desc.bInterfaceProtocol == USB_INTERFACE_PROTOCOL_KEYBOARD)
+	{
+		hid_set_drvdata(hdev, NULL);
+		return 0;
+	}
+
+	device = kzalloc(sizeof(struct sidewinder_x4_device), GFP_KERNEL);
+	if(!device)
+		return -ENOMEM;
+
+	device->usb_dev = usb_dev;
+
+	hid_set_drvdata(hdev, device);
+	
+	ms_sidewinder_send(usb_dev, SIDEWINDER_X4_COMMAND_LED, &led, sizeof(led));
+
+	return 0;
+}
+
 static int ms_sidewinder_profile(int get) {
 	static unsigned int actual_profile = 1;
 	switch (get) {
@@ -106,6 +174,7 @@ static int ms_sidewinder_profile(int get) {
 	default:
 		return 0;
 	}
+
 	return actual_profile;
 }
 
@@ -267,6 +336,8 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	int ret;
 
 	hid_set_drvdata(hdev, (void *)quirks);
+
+	ms_sidewinder_setup(hdev);
 
 	if (quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
