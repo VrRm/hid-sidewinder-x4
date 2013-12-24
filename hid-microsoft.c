@@ -202,7 +202,6 @@ static int ms_sidewinder_led(struct hid_device *hdev, char profile)
 static int ms_sidewinder_profile(struct hid_device *hdev, int get)
 {
 	static char profile = 1;
-	printk(KERN_DEBUG "Profile Change");
 
 	switch (get) {
 	case 0:
