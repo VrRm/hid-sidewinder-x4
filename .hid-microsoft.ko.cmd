@@ -1,1 +1,0 @@
-cmd_/home/tolga/Documents/Git/hid-sidewinder-x4/hid-microsoft.ko := ld -r -m elf_x86_64 -T /usr/src/linux-3.12.5-1-ARCH/scripts/module-common.lds --build-id  -o /home/tolga/Documents/Git/hid-sidewinder-x4/hid-microsoft.ko /home/tolga/Documents/Git/hid-sidewinder-x4/hid-microsoft.o /home/tolga/Documents/Git/hid-sidewinder-x4/hid-microsoft.mod.o
