@@ -33,6 +33,20 @@
 #define MS_RDESC_3K		0x40
 #define MS_SIDEWINDER	0x80
 
+struct usb_kbd2 {
+	struct usb_device *usb_dev;
+	struct urb *led;
+	uint16_t newleds;
+
+	struct usb_ctrlrequest *cr;
+	uint16_t *leds;
+	dma_addr_t leds_dma;
+	
+	spinlock_t leds_lock;
+	bool led_urb_submitted;
+
+};
+
 static __u8 *ms_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 		unsigned int *rsize)
 {
@@ -98,94 +112,32 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
-static void ms_complete(struct urb *urb)
+static void usb_kbd_led(struct urb *urb)
 {
-	urb = urb;
-}
+	unsigned long flags;
+	struct usb_kbd *kbd = urb->context;
 
-static int ms_sidewinder_send(struct usb_device *usb_dev, uint usb_command, void *data, uint size)
-{
-	struct urb *urb;
-	struct usb_ctrlrequest *dr;
-	// int ret;
-	// int length;
+	if (urb->status)
+		hid_warn(urb->dev, "led urb status %d received\n",
+			 urb->status);
 
-	urb = usb_alloc_urb(0, GFP_KERNEL);
-	if (!urb)
-		return -ENOMEM;
+	spin_lock_irqsave(&kbd->leds_lock, flags);
 
-	dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL);
-	if (!dr)
-		return -ENOMEM;
-
-	dr->bRequestType = USB_TYPE_CLASS | USB_RECIP_INTERFACE | USB_DIR_OUT;
-	dr->bRequest = 0x09;
-	dr->wValue = cpu_to_le16(0x307);
-	dr->wIndex = cpu_to_le16(0x1);
-	dr->wLength = cpu_to_le16(0x2);
-
-	usb_fill_control_urb(urb, usb_dev, usb_sndctrlpipe(usb_dev, 0), (unsigned char *)dr,
-					data, size, ms_complete, NULL);
-
-	usb_submit_urb(urb, GFP_KERNEL);	
-
-	kfree(dr);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(ms_sidewinder_send);
-
-static int ms_sidewinder_led(struct hid_device *hdev, int profile)
-{
-	struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
-	struct usb_device *usb_dev = interface_to_usbdev(intf);
-	int SIDEWINDER_X4_COMMAND_LED = 0x307;
-	struct sidewinder_x4_device
-	{
-		int profile;
-
-		int led_1;
-		int led_2;
-		int led_3;
-		int led_auto;
-
-		struct usb_device *usb_dev;
-	};
-	struct sidewinder_x4_device *device;
-
-	struct sidewinder_x4_led
-	{
-		uint8_t unknown;
-		uint8_t led;
-	};
-
-	struct sidewinder_x4_led led;
-	led.unknown = 0x07;
-	switch(profile) {
-	case 1: led.led = 0x04;	break;
-	case 2: led.led = 0x08;	break;
-	case 3: led.led = 0x10;	break;
-	default:
-		return -EINVAL;
+	if (*(kbd->leds) == kbd->newleds){
+		kbd->led_urb_submitted = false;
+		spin_unlock_irqrestore(&kbd->leds_lock, flags);
+		return;
 	}
 
-	if (intf->cur_altsetting->desc.bInterfaceProtocol == USB_INTERFACE_PROTOCOL_KEYBOARD)
-	{
-		hid_set_drvdata(hdev, NULL);
-		return 0;
+	*(kbd->leds) = kbd->newleds;
+
+	kbd->led->dev = kbd->usbdev;
+	if (usb_submit_urb(kbd->led, GFP_ATOMIC)){
+		hid_err(urb->dev, "usb_submit_urb(leds) failed\n");
+		kbd->led_urb_submitted = false;
 	}
+	spin_unlock_irqrestore(&kbd->leds_lock, flags);
 
-	device = kzalloc(sizeof(struct sidewinder_x4_device), GFP_KERNEL);
-	if(!device)
-		return -ENOMEM;
-
-	device->usb_dev = usb_dev;
-
-	hid_set_drvdata(hdev, device);
-	
-	ms_sidewinder_send(usb_dev, SIDEWINDER_X4_COMMAND_LED, &led, sizeof(led));
-
-	return 0;
 }
 
 static int ms_sidewinder_profile(int get) {
@@ -260,6 +212,31 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		struct hid_usage *usage, __s32 value)
 {
 	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+
+	spin_lock_irqsave(&kbd->leds_lock, flags);
+	kbd->newleds = (!!test_bit(LED_KANA,    dev->led) << 3) | (!!test_bit(LED_COMPOSE, dev->led) << 3) |
+		       (!!test_bit(LED_SCROLLL, dev->led) << 2) | (!!test_bit(LED_CAPSL,   dev->led) + 0x406) |
+		       (!!test_bit(LED_NUML,    dev->led));
+
+	if (kbd->led_urb_submitted){
+		spin_unlock_irqrestore(&kbd->leds_lock, flags);
+		return 0;
+	}
+
+	if (*(kbd->leds) == kbd->newleds){
+		spin_unlock_irqrestore(&kbd->leds_lock, flags);
+		return 0;
+	}
+
+	*(kbd->leds) = kbd->newleds;
+	
+	kbd->led->dev = kbd->usb_dev;
+	if (usb_submit_urb(kbd->led, GFP_ATOMIC))
+		pr_err("usb_submit_urb(leds) failed\n");
+	else
+		kbd->led_urb_submitted = true;
+	
+	spin_unlock_irqrestore(&kbd->leds_lock, flags);
 
 	if (!(hdev->claimed & HID_CLAIMED_INPUT) || !field->hidinput ||
 			!usage->type)
@@ -359,9 +336,44 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	unsigned long quirks = id->driver_data;
 	int ret;
 
+	struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
+	struct usb_device *usb_dev = interface_to_usbdev(intf);
+	struct usb_host_interface *interface;
+	struct usb_endpoint_descriptor *endpoint;
+	struct usb_kbd2 *kbd;
+
 	hid_set_drvdata(hdev, (void *)quirks);
 
-	ms_sidewinder_led(hdev, 2); /* Debugging LEDs */
+	interface = iface->cur_altsetting;
+
+	if (interface->desc.bNumEndpoints != 1)
+		return -ENODEV;
+
+	endpoint = &interface->endpoint[0].desc;
+	if (!usb_endpoint_is_int_in(endpoint))
+		return -ENODEV;
+
+	kbd = kzalloc(sizeof(struct usb_kbd), GFP_KERNEL);
+
+	kbd->led = usb_alloc_urb(0, GFP_KERNEL)
+	kbd->cr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL)
+	kbd->leds = usb_alloc_coherent(usb_dev, 1, GFP_ATOMIC, &kbd->leds_dma)
+
+	kbd->usb_dev = usb_dev;
+
+	kbd->cr->bRequestType = USB_TYPE_CLASS | USB_RECIP_INTERFACE;
+	kbd->cr->bRequest = 0x09;
+	kbd->cr->wValue = cpu_to_le16(0x307);
+	kbd->cr->wIndex = cpu_to_le16(1);
+	kbd->cr->wLength = cpu_to_le16(2);
+
+	usb_fill_control_urb(kbd->led, usb_dev, usb_sndctrlpipe(usb_dev, 0),
+			     (void *) kbd->cr, kbd->leds, 2,
+			     usb_kbd_led, kbd);
+	kbd->led->transfer_dma = kbd->leds_dma;
+	kbd->led->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
+
+	usb_set_intfdata(intf, kbd);
 
 	if (quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
