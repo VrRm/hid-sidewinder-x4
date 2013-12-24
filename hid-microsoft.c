@@ -144,6 +144,7 @@ static void ms_sidewinder_led_complete(struct urb *urb)
 static int ms_sidewinder_led(struct hid_device *hdev, struct hid_field *field, 
 		int profile)
 {
+	unsigned long flags;
 	struct ms_sidewinder *kbd;
 	struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
 	struct usb_device *usb_dev = interface_to_usbdev(intf);
@@ -152,7 +153,7 @@ static int ms_sidewinder_led(struct hid_device *hdev, struct hid_field *field,
 
 	kbd->led = usb_alloc_urb(0, GFP_KERNEL);
 	kbd->cr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL);
-	kbd->leds = usb_alloc_coherent(usb_dev, 1, GFP_ATOMIC, &kbd->leds_dma);
+	kbd->leds = usb_alloc_coherent(usb_dev, 2, GFP_ATOMIC, &kbd->leds_dma);
 
 	kbd->usb_dev = usb_dev;
 	spin_lock_init(&kbd->leds_lock);
@@ -168,13 +169,15 @@ static int ms_sidewinder_led(struct hid_device *hdev, struct hid_field *field,
 			     ms_sidewinder_led_complete, kbd);
 	kbd->led->transfer_dma = kbd->leds_dma;
 	kbd->led->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
-	/*
-	unsigned long flags;
 
 	spin_lock_irqsave(&kbd->leds_lock, flags);
-	kbd->newleds = (!!test_bit(LED_KANA,    field->hidinput->input->led) << 3) | (!!test_bit(LED_COMPOSE, field->hidinput->input->led) << 3) |
-		       (!!test_bit(LED_SCROLLL, field->hidinput->input->led) << 2) | (!!test_bit(LED_CAPSL,   field->hidinput->input->led) + 0x406) |
-		       (!!test_bit(LED_NUML,    field->hidinput->input->led));
+	switch(profile) {
+	case 1: kbd->newleds = cpu_to_le16(0x704);	break;
+	case 2: kbd->newleds = cpu_to_le16(0x708);	break;
+	case 3: kbd->newleds = cpu_to_le16(0x710);	break;
+	default:
+		return -EINVAL;
+	}
 
 	if (kbd->led_urb_submitted){
 		spin_unlock_irqrestore(&kbd->leds_lock, flags);
@@ -195,7 +198,6 @@ static int ms_sidewinder_led(struct hid_device *hdev, struct hid_field *field,
 		kbd->led_urb_submitted = true;
 	
 	spin_unlock_irqrestore(&kbd->leds_lock, flags);
-	*/
 
 	return 0;
 }
@@ -212,12 +214,11 @@ static int ms_sidewinder_profile(struct hid_device *hdev, struct hid_field *fiel
 			actual_profile = 1;
 		else 
 			actual_profile++;
-		return actual_profile;
-	case 1: return actual_profile;
-	default:
-		return 0;
+		break;
+	case 1: break;
 	}
 
+	ms_sidewinder_led(hdev, field, actual_profile);
 	return actual_profile;
 }
 
