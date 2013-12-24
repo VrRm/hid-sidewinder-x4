@@ -346,8 +346,8 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 
 	hid_set_drvdata(hdev, (void *)quirks);
 
-	*intf = to_usb_interface(hdev->dev.parent);
-	*usb_dev = interface_to_usbdev(intf);
+	intf = to_usb_interface(hdev->dev.parent);
+	usb_dev = interface_to_usbdev(intf);
 
 	kbd = kzalloc(sizeof(struct ms_sidewinder), GFP_KERNEL);
 
@@ -364,11 +364,9 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	kbd->cr->wIndex = cpu_to_le16(1);
 	kbd->cr->wLength = cpu_to_le16(2);
 
-	/*
 	usb_fill_control_urb(kbd->led, usb_dev, usb_sndctrlpipe(usb_dev, 0),
 			     (void *) kbd->cr, kbd->leds, 2,
 			     ms_usb_kbd_led, kbd);
-	*/
 	kbd->led->transfer_dma = kbd->leds_dma;
 	kbd->led->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 
