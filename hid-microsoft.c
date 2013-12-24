@@ -15,12 +15,13 @@
  * any later version.
  */
 
+#include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/device.h>
-#include <linux/input.h>
 #include <linux/hid.h>
 #include <linux/module.h>
-#include <linux/usb.h>
-#include <linux/leds.h>
+#include <linux/usb/input.h>
+#include <linux/init.h>
 
 #include "hid-ids.h"
 
@@ -112,10 +113,10 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
-static void usb_kbd_led(struct urb *urb)
+static void ms_usb_kbd_led(struct urb *urb)
 {
 	unsigned long flags;
-	struct usb_kbd *kbd = urb->context;
+	struct usb_kbd2 *kbd = urb->context;
 
 	if (urb->status)
 		hid_warn(urb->dev, "led urb status %d received\n",
@@ -131,7 +132,7 @@ static void usb_kbd_led(struct urb *urb)
 
 	*(kbd->leds) = kbd->newleds;
 
-	kbd->led->dev = kbd->usbdev;
+	kbd->led->dev = kbd->usb_dev;
 	if (usb_submit_urb(kbd->led, GFP_ATOMIC)){
 		hid_err(urb->dev, "usb_submit_urb(leds) failed\n");
 		kbd->led_urb_submitted = false;
@@ -211,12 +212,14 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		struct hid_usage *usage, __s32 value)
 {
+	unsigned long flags;
 	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+	struct usb_kbd2 *kbd = input_get_drvdata(field->hidinput->input);
 
 	spin_lock_irqsave(&kbd->leds_lock, flags);
-	kbd->newleds = (!!test_bit(LED_KANA,    dev->led) << 3) | (!!test_bit(LED_COMPOSE, dev->led) << 3) |
-		       (!!test_bit(LED_SCROLLL, dev->led) << 2) | (!!test_bit(LED_CAPSL,   dev->led) + 0x406) |
-		       (!!test_bit(LED_NUML,    dev->led));
+	kbd->newleds = (!!test_bit(LED_KANA,    field->hidinput->input->led) << 3) | (!!test_bit(LED_COMPOSE, field->hidinput->input->led) << 3) |
+		       (!!test_bit(LED_SCROLLL, field->hidinput->input->led) << 2) | (!!test_bit(LED_CAPSL,   field->hidinput->input->led) + 0x406) |
+		       (!!test_bit(LED_NUML,    field->hidinput->input->led));
 
 	if (kbd->led_urb_submitted){
 		spin_unlock_irqrestore(&kbd->leds_lock, flags);
@@ -338,28 +341,18 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 
 	struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
 	struct usb_device *usb_dev = interface_to_usbdev(intf);
-	struct usb_host_interface *interface;
-	struct usb_endpoint_descriptor *endpoint;
 	struct usb_kbd2 *kbd;
 
 	hid_set_drvdata(hdev, (void *)quirks);
 
-	interface = iface->cur_altsetting;
+	kbd = kzalloc(sizeof(struct usb_kbd2), GFP_KERNEL);
 
-	if (interface->desc.bNumEndpoints != 1)
-		return -ENODEV;
-
-	endpoint = &interface->endpoint[0].desc;
-	if (!usb_endpoint_is_int_in(endpoint))
-		return -ENODEV;
-
-	kbd = kzalloc(sizeof(struct usb_kbd), GFP_KERNEL);
-
-	kbd->led = usb_alloc_urb(0, GFP_KERNEL)
-	kbd->cr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL)
-	kbd->leds = usb_alloc_coherent(usb_dev, 1, GFP_ATOMIC, &kbd->leds_dma)
+	kbd->led = usb_alloc_urb(0, GFP_KERNEL);
+	kbd->cr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL);
+	kbd->leds = usb_alloc_coherent(usb_dev, 1, GFP_ATOMIC, &kbd->leds_dma);
 
 	kbd->usb_dev = usb_dev;
+	spin_lock_init(&kbd->leds_lock);
 
 	kbd->cr->bRequestType = USB_TYPE_CLASS | USB_RECIP_INTERFACE;
 	kbd->cr->bRequest = 0x09;
@@ -369,7 +362,7 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 
 	usb_fill_control_urb(kbd->led, usb_dev, usb_sndctrlpipe(usb_dev, 0),
 			     (void *) kbd->cr, kbd->leds, 2,
-			     usb_kbd_led, kbd);
+			     ms_usb_kbd_led, kbd);
 	kbd->led->transfer_dma = kbd->leds_dma;
 	kbd->led->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 
