@@ -15,13 +15,10 @@
  * any later version.
  */
 
-#include <linux/kernel.h>
-#include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/hid.h>
 #include <linux/module.h>
 #include <linux/usb/input.h>
-#include <linux/init.h>
 
 #include "hid-ids.h"
 
@@ -141,8 +138,7 @@ static void ms_sidewinder_led_complete(struct urb *urb)
 
 }
 
-static int ms_sidewinder_led(struct hid_device *hdev, struct hid_field *field, 
-		int profile)
+static int ms_sidewinder_led(struct hid_device *hdev, char profile)
 {
 	unsigned long flags;
 	struct ms_sidewinder *kbd;
@@ -203,24 +199,24 @@ static int ms_sidewinder_led(struct hid_device *hdev, struct hid_field *field,
 	return 0;
 }
 
-static int ms_sidewinder_profile(struct hid_device *hdev, struct hid_field *field, 
-		int get)
+static int ms_sidewinder_profile(struct hid_device *hdev, int get)
 {
-	static unsigned int actual_profile = 1;
+	static char profile = 1;
 	printk(KERN_DEBUG "Profile Change");
 
 	switch (get) {
 	case 0:
-		if (actual_profile < 1 || actual_profile >= 3)
-			actual_profile = 1;
+		if (profile < 1 || profile >= 3)
+			profile = 1;
 		else 
-			actual_profile++;
+			profile++;
 		break;
-	case 1: break;
+	case 1: return profile;
 	}
 
-	ms_sidewinder_led(hdev, field, actual_profile);
-	return actual_profile;
+	ms_sidewinder_led(hdev, profile);
+
+	return profile;
 }
 
 static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
@@ -259,8 +255,7 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		return 1;
 		
 	if ((quirks & MS_SIDEWINDER) &&
-			ms_sidewinder_kb_quirk(hi, usage, bit, max) &&
-			ms_sidewinder_led(hdev, field, 1))
+			ms_sidewinder_kb_quirk(hi, usage, bit, max))
 		return 1;
 
 	return 0;
@@ -310,62 +305,65 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 
 	/* Sidewinder special button handling & profile switching */
 	if (quirks & MS_SIDEWINDER && (usage->hid == (HID_UP_MSVENDOR | 0xfd15) || usage->hid == (HID_UP_MSVENDOR | 0xfb01) || usage->hid == (HID_UP_MSVENDOR | 0xfb02) || usage->hid == (HID_UP_MSVENDOR | 0xfb03) || usage->hid == (HID_UP_MSVENDOR | 0xfb04) || usage->hid == (HID_UP_MSVENDOR | 0xfb05) || usage->hid == (HID_UP_MSVENDOR | 0xfb06))) {
+		struct input_dev *input = field->hidinput->input;
 		switch (usage->hid ^ HID_UP_MSVENDOR) {
 		case 0xfb01: /* S1 */
-			switch (ms_sidewinder_profile(hdev, field, 1)) {
-			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F7, value);	break; /* Bank 1 */
-			case 2: input_event(field->hidinput->input, usage->type, KEY_F13, value);	break; /* Bank 2 */
-			case 3: input_event(field->hidinput->input, usage->type, KEY_F19, value);	break; /* Bank 3 */
+			switch (ms_sidewinder_profile(hdev, 1)) {
+			case 1: input_event(input, usage->type, KEY_FN_F7, value);	break; /* Bank 1 */
+			case 2: input_event(input, usage->type, KEY_F13, value);	break; /* Bank 2 */
+			case 3: input_event(input, usage->type, KEY_F19, value);	break; /* Bank 3 */
 			default:
 				return 0;
 			}
 			break;
 		case 0xfb02: /* S2 */
-			switch (ms_sidewinder_profile(hdev, field, 1)) {
-			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F8, value);	break;
-			case 2: input_event(field->hidinput->input, usage->type, KEY_F14, value);	break;
-			case 3: input_event(field->hidinput->input, usage->type, KEY_F20, value);	break;
+			switch (ms_sidewinder_profile(hdev, 1)) {
+			case 1: input_event(input, usage->type, KEY_FN_F8, value);	break;
+			case 2: input_event(input, usage->type, KEY_F14, value);	break;
+			case 3: input_event(input, usage->type, KEY_F20, value);	break;
 			default:
 				return 0;
 			}
 			break;
 		case 0xfb03: /* S3 */
-			switch (ms_sidewinder_profile(hdev, field, 1)) {
-			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F9, value);	break; /* Bank 1 */
-			case 2: input_event(field->hidinput->input, usage->type, KEY_F15, value);	break; /* Bank 2 */
-			case 3: input_event(field->hidinput->input, usage->type, KEY_F21, value);	break; /* Bank 3 */
+			switch (ms_sidewinder_profile(hdev, 1)) {
+			case 1: input_event(input, usage->type, KEY_FN_F9, value);	break;
+			case 2: input_event(input, usage->type, KEY_F15, value);	break;
+			case 3: input_event(input, usage->type, KEY_F21, value);	break;
 			default:
 				return 0;
 			}
 			break;
 		case 0xfb04: /* S4 */
-			switch (ms_sidewinder_profile(hdev, field, 1)) {
-			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F10, value);	break;
-			case 2: input_event(field->hidinput->input, usage->type, KEY_F16, value);	break;
-			case 3: input_event(field->hidinput->input, usage->type, KEY_F22, value);	break;
+			switch (ms_sidewinder_profile(hdev, 1)) {
+			case 1: input_event(input, usage->type, KEY_FN_F10, value);	break;
+			case 2: input_event(input, usage->type, KEY_F16, value);	break;
+			case 3: input_event(input, usage->type, KEY_F22, value);	break;
 			default:
 				return 0;
 			}
 			break;
 		case 0xfb05: /* S5 */
-			switch (ms_sidewinder_profile(hdev, field, 1)) {
-			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F11, value);	break; /* Bank 1 */
-			case 2: input_event(field->hidinput->input, usage->type, KEY_F17, value);	break; /* Bank 2 */
-			case 3: input_event(field->hidinput->input, usage->type, KEY_F23, value);	break; /* Bank 3 */
+			switch (ms_sidewinder_profile(hdev, 1)) {
+			case 1: input_event(input, usage->type, KEY_FN_F11, value);	break;
+			case 2: input_event(input, usage->type, KEY_F17, value);	break;
+			case 3: input_event(input, usage->type, KEY_F23, value);	break;
 			default:
 				return 0;
 			}
 			break;
 		case 0xfb06: /* S6 */
-			switch (ms_sidewinder_profile(hdev, field, 1)) {
-			case 1: input_event(field->hidinput->input, usage->type, KEY_FN_F12, value);	break;
-			case 2: input_event(field->hidinput->input, usage->type, KEY_F18, value);	break;
-			case 3: input_event(field->hidinput->input, usage->type, KEY_F24, value);	break;
+			switch (ms_sidewinder_profile(hdev, 1)) {
+			case 1: input_event(input, usage->type, KEY_FN_F12, value);	break;
+			case 2: input_event(input, usage->type, KEY_F18, value);	break;
+			case 3: input_event(input, usage->type, KEY_F24, value);	break;
 			default:
 				return 0;
 			}
 			break;
-		case 0xfd15: if (value) ms_sidewinder_profile(hdev, field, 0);
+		case 0xfd15:
+			if (value)
+				ms_sidewinder_profile(hdev, 0);
 		default:
 			return 0;
 		}
@@ -385,6 +383,9 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 
 	if (quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
+
+	if (quirks & MS_SIDEWINDER)
+		ms_sidewinder_led(hdev, 1); /* Set initial LED */
 
 	ret = hid_parse(hdev);
 	if (ret) {
