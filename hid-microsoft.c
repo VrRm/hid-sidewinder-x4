@@ -171,10 +171,11 @@ static int ms_sidewinder_led(struct hid_device *hdev, struct hid_field *field,
 	kbd->led->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 
 	spin_lock_irqsave(&kbd->leds_lock, flags);
+
 	switch(profile) {
-	case 1: kbd->newleds = cpu_to_le16(0x704);	break;
-	case 2: kbd->newleds = cpu_to_le16(0x708);	break;
-	case 3: kbd->newleds = cpu_to_le16(0x710);	break;
+	case 1: kbd->newleds = 0x0407;	break;
+	case 2: kbd->newleds = 0x0807;	break;
+	case 3: kbd->newleds = 0x1007;	break;
 	default:
 		return -EINVAL;
 	}
@@ -258,7 +259,8 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		return 1;
 		
 	if ((quirks & MS_SIDEWINDER) &&
-			ms_sidewinder_kb_quirk(hi, usage, bit, max))
+			ms_sidewinder_kb_quirk(hi, usage, bit, max) &&
+			ms_sidewinder_led(hdev, field, 1))
 		return 1;
 
 	return 0;
