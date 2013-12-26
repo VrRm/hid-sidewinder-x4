@@ -106,20 +106,20 @@ static int ms_sidewinder_led(struct hid_device *hdev, char profile_led, char rec
 	 * they can be set in any combination with the Record LED
 	 */
 	switch(profile_led) {
-	case 0: report->field[0]->value[0] = 0x00;	break;	/* LEDs OFF */
-	case 1: report->field[0]->value[0] = 0x04;	break;	/* LED 1 */
-	case 2: report->field[0]->value[0] = 0x08;	break;	/* LED 2 */
-	case 3: report->field[0]->value[0] = 0x10;	break;	/* LED 3 */
-	case 4: report->field[0]->value[0] = 0x02;	break;	/* LED Auto */
+	case 0: break;						/* LEDs OFF */
+	case 1: report->field[0]->value[2] = 0x01;	break;	/* LED 1 */
+	case 2: report->field[0]->value[3] = 0x01;	break;	/* LED 2 */
+	case 3: report->field[0]->value[4] = 0x01;	break;	/* LED 3 */
+	case 4: report->field[0]->value[1] = 0x01;	break;	/* LED Auto */
 	default:
 		return -EINVAL;
 	}
 
 	switch(record_led) {
-	case 0: break;							/* Record LED OFF */
-	case 1: report->field[0]->value[0] |= 0x20;	break;	/* Record LED Blink */
-	case 2: report->field[0]->value[0] |= 0x40;	break;	/* Record LED Fast */
-	case 3: report->field[0]->value[0] |= 0x60;	break;	/* Record LED Solid */
+	case 0: break;						/* Record LED OFF */
+	case 1: report->field[1]->value[0] = 0x01;	break;	/* Record LED Breath */
+	case 2: report->field[1]->value[0] = 0x02;	break;	/* Record LED Blink */
+	case 3: report->field[1]->value[0] = 0x03;	break;	/* Record LED Solid */
 	default:
 		return -EINVAL;
 	}
