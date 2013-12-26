@@ -324,9 +324,6 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	if (quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
 
-	if (quirks & MS_SIDEWINDER)
-		ms_sidewinder_led(hdev, 1, 0); /* Set initial LED */
-
 	ret = hid_parse(hdev);
 	if (ret) {
 		hid_err(hdev, "parse failed\n");
