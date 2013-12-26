@@ -138,7 +138,7 @@ static void ms_sidewinder_led_complete(struct urb *urb)
 
 }
 
-static int ms_sidewinder_led(struct hid_device *hdev, char profile)
+static int ms_sidewinder_led(struct hid_device *hdev, char profile_led, char record_led)
 {
 	unsigned long flags;
 	struct ms_sidewinder *kbd;
@@ -168,13 +168,28 @@ static int ms_sidewinder_led(struct hid_device *hdev, char profile)
 
 	spin_lock_irqsave(&kbd->leds_lock, flags);
 
-	switch(profile) {
-	case 1: kbd->newleds = 0x0407;	break;
-	case 2: kbd->newleds = 0x0807;	break;
-	case 3: kbd->newleds = 0x1007;	break;
+	kbd->newleds = 0x700; /* LED is set by 2 Bytes. 0x07 is unknown */
+
+	switch(profile_led) {
+	case 0: break;		/* LEDs OFF */
+	case 1: kbd->newleds |= 0x04;	break;		/* LED 1 */
+	case 2: kbd->newleds |= 0x08;	break;		/* LED 2 */
+	case 3: kbd->newleds |= 0x10;	break;		/* LED 3 */
+	case 4: kbd->newleds |= 0x02;	break;		/* LED Auto */
 	default:
 		return -EINVAL;
 	}
+
+	switch(record_led) {
+	case 0: kbd->newleds ^= 0x00;	break;	/* Record LED OFF */
+	case 1: kbd->newleds |= 0x20;	break;	/* Record LED Blink */
+	case 2: kbd->newleds |= 0x40;	break;	/* Record LED Fast */
+	case 3: kbd->newleds |= 0x60;	break;	/* Record LED Solid */
+	default:
+		return -EINVAL;
+	}
+
+	kbd->newleds = cpu_to_be16(kbd->newleds);
 
 	if (kbd->led_urb_submitted){
 		spin_unlock_irqrestore(&kbd->leds_lock, flags);
@@ -199,7 +214,9 @@ static int ms_sidewinder_led(struct hid_device *hdev, char profile)
 	return 0;
 }
 
-static int ms_sidewinder_profile(struct hid_device *hdev, int get)
+static int ms_sidewinder_record(struct hid_device *hdev, char get);
+
+static int ms_sidewinder_profile(struct hid_device *hdev, char get)
 {
 	static char profile = 1;
 
@@ -213,9 +230,31 @@ static int ms_sidewinder_profile(struct hid_device *hdev, int get)
 	case 1: return profile;
 	}
 
-	ms_sidewinder_led(hdev, profile);
+	ms_sidewinder_led(hdev, profile, ms_sidewinder_record(hdev, 1));
 
 	return profile;
+}
+
+static int ms_sidewinder_record(struct hid_device *hdev, char get)
+{
+	static char record = 0;
+
+	switch(get) {
+	case 0:
+		switch (record) {
+		case 0:
+			ms_sidewinder_led(hdev, ms_sidewinder_profile(hdev, 1), 3);
+			record = 3;
+			return 3;
+		case 3:
+			ms_sidewinder_led(hdev, ms_sidewinder_profile(hdev, 1), 0);
+			record = 0;
+			break;
+		}
+	case 1: return record;
+	}
+
+	return 0;
 }
 
 static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
@@ -229,6 +268,7 @@ static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
 	case 0xfb04: ms_map_key_clear(KEY_FN_F10);	break;
 	case 0xfb05: ms_map_key_clear(KEY_FN_F11);	break;
 	case 0xfb06: ms_map_key_clear(KEY_FN_F12);	break;
+	case 0xfd12: ms_map_key_clear(KEY_MACRO);	break;
 	case 0xfd15: ms_map_key_clear(KEY_UNKNOWN);	break;
 	default:
 		return 0;
@@ -303,7 +343,15 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 	}
 
 	/* Sidewinder special button handling & profile switching */
-	if (quirks & MS_SIDEWINDER && (usage->hid == (HID_UP_MSVENDOR | 0xfd15) || usage->hid == (HID_UP_MSVENDOR | 0xfb01) || usage->hid == (HID_UP_MSVENDOR | 0xfb02) || usage->hid == (HID_UP_MSVENDOR | 0xfb03) || usage->hid == (HID_UP_MSVENDOR | 0xfb04) || usage->hid == (HID_UP_MSVENDOR | 0xfb05) || usage->hid == (HID_UP_MSVENDOR | 0xfb06))) {
+	if (quirks & MS_SIDEWINDER &&
+			(usage->hid == (HID_UP_MSVENDOR | 0xfb01) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfb02) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfb03) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfb04) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfb05) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfb06) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfd12) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfd15))) {
 		struct input_dev *input = field->hidinput->input;
 		switch (usage->hid ^ HID_UP_MSVENDOR) {
 		case 0xfb01: /* S1 */
@@ -360,9 +408,15 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 				return 0;
 			}
 			break;
+		case 0xfd12:
+			input_event(input, usage->type, KEY_MACRO, value);
+			if (value)
+				ms_sidewinder_record(hdev, 0);
+			break;
 		case 0xfd15:
 			if (value)
 				ms_sidewinder_profile(hdev, 0);
+			break;
 		default:
 			return 0;
 		}
@@ -384,7 +438,7 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		hdev->quirks |= HID_QUIRK_NOGET;
 
 	if (quirks & MS_SIDEWINDER)
-		ms_sidewinder_led(hdev, 1); /* Set initial LED */
+		ms_sidewinder_led(hdev, 1, 0); /* Set initial LED */
 
 	ret = hid_parse(hdev);
 	if (ret) {
