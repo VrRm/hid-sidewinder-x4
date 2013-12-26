@@ -31,20 +31,6 @@
 #define MS_RDESC_3K		0x40
 #define MS_SIDEWINDER	0x80
 
-struct ms_sidewinder {
-	struct usb_device *usb_dev;
-	struct urb *led;
-	uint16_t newleds;
-
-	struct usb_ctrlrequest *cr;
-	uint16_t *leds;
-	dma_addr_t leds_dma;
-	
-	spinlock_t leds_lock;
-	bool led_urb_submitted;
-
-};
-
 static __u8 *ms_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 		unsigned int *rsize)
 {
@@ -110,108 +96,37 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
-static void ms_sidewinder_led_complete(struct urb *urb)
-{
-	unsigned long flags;
-	struct ms_sidewinder *kbd = urb->context;
-
-	if (urb->status)
-		hid_warn(urb->dev, "led urb status %d received\n",
-			 urb->status);
-
-	spin_lock_irqsave(&kbd->leds_lock, flags);
-
-	if (*(kbd->leds) == kbd->newleds){
-		kbd->led_urb_submitted = false;
-		spin_unlock_irqrestore(&kbd->leds_lock, flags);
-		return;
-	}
-
-	*(kbd->leds) = kbd->newleds;
-
-	kbd->led->dev = kbd->usb_dev;
-	if (usb_submit_urb(kbd->led, GFP_ATOMIC)){
-		hid_err(urb->dev, "usb_submit_urb(leds) failed\n");
-		kbd->led_urb_submitted = false;
-	}
-	spin_unlock_irqrestore(&kbd->leds_lock, flags);
-
-}
-
 static int ms_sidewinder_led(struct hid_device *hdev, char profile_led, char record_led)
 {
-	unsigned long flags;
-	struct ms_sidewinder *kbd;
-	struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
-	struct usb_device *usb_dev = interface_to_usbdev(intf);
+	struct hid_report *report = hdev->report_enum[HID_FEATURE_REPORT].
+		report_id_hash[0x07];
 
-	kbd = kzalloc(sizeof(struct ms_sidewinder), GFP_KERNEL);
-
-	kbd->led = usb_alloc_urb(0, GFP_KERNEL);
-	kbd->cr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL);
-	kbd->leds = usb_alloc_coherent(usb_dev, 2, GFP_ATOMIC, &kbd->leds_dma);
-
-	kbd->usb_dev = usb_dev;
-	spin_lock_init(&kbd->leds_lock);
-
-	kbd->cr->bRequestType = USB_TYPE_CLASS | USB_RECIP_INTERFACE;
-	kbd->cr->bRequest = 0x09;
-	kbd->cr->wValue = cpu_to_le16(0x307);
-	kbd->cr->wIndex = cpu_to_le16(1);
-	kbd->cr->wLength = cpu_to_le16(2);
-
-	usb_fill_control_urb(kbd->led, usb_dev, usb_sndctrlpipe(usb_dev, 0),
-			     (void *) kbd->cr, kbd->leds, 2,
-			     ms_sidewinder_led_complete, kbd);
-	kbd->led->transfer_dma = kbd->leds_dma;
-	kbd->led->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
-
-	spin_lock_irqsave(&kbd->leds_lock, flags);
+	report->size = 0x04;
 
 	/* LED is set by 2 Bytes. 0x07 is unknown
 	 * Profile LEDs cannot be set simultaneously, however
 	 * they can be set in any combination with the Record LED
 	 */
 	switch(profile_led) {
-	case 0: kbd->newleds = 0x700;	break;	/* LEDs OFF */
-	case 1: kbd->newleds = 0x704;	break;	/* LED 1 */
-	case 2: kbd->newleds = 0x708;	break;	/* LED 2 */
-	case 3: kbd->newleds = 0x710;	break;	/* LED 3 */
-	case 4: kbd->newleds = 0x702;	break;	/* LED Auto */
+	case 0: report->field[0]->value[0] = 0x00;	break;	/* LEDs OFF */
+	case 1: report->field[0]->value[0] = 0x04;	break;	/* LED 1 */
+	case 2: report->field[0]->value[0] = 0x08;	break;	/* LED 2 */
+	case 3: report->field[0]->value[0] = 0x10;	break;	/* LED 3 */
+	case 4: report->field[0]->value[0] = 0x02;	break;	/* LED Auto */
 	default:
 		return -EINVAL;
 	}
 
 	switch(record_led) {
 	case 0: break;							/* Record LED OFF */
-	case 1: kbd->newleds |= 0x20;	break;	/* Record LED Blink */
-	case 2: kbd->newleds |= 0x40;	break;	/* Record LED Fast */
-	case 3: kbd->newleds |= 0x60;	break;	/* Record LED Solid */
+	case 1: report->field[0]->value[0] |= 0x20;	break;	/* Record LED Blink */
+	case 2: report->field[0]->value[0] |= 0x40;	break;	/* Record LED Fast */
+	case 3: report->field[0]->value[0] |= 0x60;	break;	/* Record LED Solid */
 	default:
 		return -EINVAL;
 	}
 
-	kbd->newleds = cpu_to_be16(kbd->newleds);
-
-	if (kbd->led_urb_submitted){
-		spin_unlock_irqrestore(&kbd->leds_lock, flags);
-		return 0;
-	}
-
-	if (*(kbd->leds) == kbd->newleds){
-		spin_unlock_irqrestore(&kbd->leds_lock, flags);
-		return 0;
-	}
-
-	*(kbd->leds) = kbd->newleds;
-	
-	kbd->led->dev = kbd->usb_dev;
-	if (usb_submit_urb(kbd->led, GFP_ATOMIC))
-		pr_err("usb_submit_urb(leds) failed\n");
-	else
-		kbd->led_urb_submitted = true;
-	
-	spin_unlock_irqrestore(&kbd->leds_lock, flags);
+	hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
 
 	return 0;
 }
