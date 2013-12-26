@@ -98,10 +98,8 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 
 static int ms_sidewinder_led(struct hid_device *hdev, char profile_led, char record_led)
 {
-	struct hid_report *report = hdev->report_enum[HID_FEATURE_REPORT].
-		report_id_hash[0x07];
-
-	report->size = 0x04;
+	struct hid_report *report = hid_register_report(hdev,
+		HID_FEATURE_REPORT, 0x07);
 
 	/* LED is set by 2 Bytes. 0x07 is unknown
 	 * Profile LEDs cannot be set simultaneously, however
