@@ -98,6 +98,7 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 
 static int ms_sidewinder_set_leds(struct hid_device *hdev, uint8_t leds)
 {
+	static uint8_t led_status = 0x00;
 	struct hid_report *report =
 			hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[7];
 
@@ -114,7 +115,10 @@ static int ms_sidewinder_set_leds(struct hid_device *hdev, uint8_t leds)
 	report->field[1]->value[0] = (leds & 0x40) ? 0x02 : 0x00;	/* Record LED Blink */
 	report->field[1]->value[0] = (leds & 0x80) ? 0x03 : 0x00;	/* Record LED Solid */
 
-	hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
+	if (led_status != leds) {
+		hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
+		led_status = leds;
+	}
 
 	return 0;
 }
