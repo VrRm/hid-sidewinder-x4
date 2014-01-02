@@ -96,33 +96,23 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
-static int ms_sidewinder_led(struct hid_device *hdev, char profile_led, char record_led)
+static int ms_sidewinder_set_leds(struct hid_device *hdev, uint8_t leds)
 {
-	struct hid_report *report = hid_register_report(hdev,
-		HID_FEATURE_REPORT, 0x07);
+	struct hid_report *report =
+			hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[7];
 
-	/* LED is set by 2 Bytes. 0x07 is unknown
-	 * Profile LEDs cannot be set simultaneously, however
-	 * they can be set in any combination with the Record LED
+	/* LEDs 1 - 3 should not be set simultaneously, however
+	 * they can be set in any combination with Record LEDs
 	 */
-	switch(profile_led) {
-	case 0: break;						/* LEDs OFF */
-	case 1: report->field[0]->value[2] = 0x01;	break;	/* LED 1 */
-	case 2: report->field[0]->value[3] = 0x01;	break;	/* LED 2 */
-	case 3: report->field[0]->value[4] = 0x01;	break;	/* LED 3 */
-	case 4: report->field[0]->value[1] = 0x01;	break;	/* LED Auto */
-	default:
-		return -EINVAL;
-	}
+	report->field[0]->value[0] = 0x00;
+	report->field[0]->value[1] = (leds & 0x01) ? 0x01 : 0x00;	/* LED Auto */
+	report->field[0]->value[2] = (leds & 0x02) ? 0x01 : 0x00;	/* LED 1 */
+	report->field[0]->value[3] = (leds & 0x04) ? 0x01 : 0x00;	/* LED 2 */
+	report->field[0]->value[4] = (leds & 0x08) ? 0x01 : 0x00;	/* LED 3 */
 
-	switch(record_led) {
-	case 0: break;						/* Record LED OFF */
-	case 1: report->field[1]->value[0] = 0x01;	break;	/* Record LED Breath */
-	case 2: report->field[1]->value[0] = 0x02;	break;	/* Record LED Blink */
-	case 3: report->field[1]->value[0] = 0x03;	break;	/* Record LED Solid */
-	default:
-		return -EINVAL;
-	}
+	report->field[1]->value[0] = (leds & 0x20) ? 0x01 : 0x00;	/* Record LED Breath */
+	report->field[1]->value[0] = (leds & 0x40) ? 0x02 : 0x00;	/* Record LED Blink */
+	report->field[1]->value[0] = (leds & 0x80) ? 0x03 : 0x00;	/* Record LED Solid */
 
 	hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
 
@@ -143,7 +133,7 @@ static int ms_sidewinder_profile(struct hid_device *hdev, char get)
 	case 1: return profile;
 	}
 
-	ms_sidewinder_led(hdev, profile, 0);
+	ms_sidewinder_set_leds(hdev, 1 << profile);
 
 	return profile;
 }
@@ -201,6 +191,16 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 		clear_bit(usage->code, *bit);
 
 	return 0;
+}
+
+/* Setting initial profile LED of Sidewinder keyboards */
+static void ms_feature_mapping(struct hid_device *hdev,
+		struct hid_field *field, struct hid_usage *usage)
+{
+	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+
+	if (quirks & MS_SIDEWINDER)
+		ms_sidewinder_set_leds(hdev, 1 << ms_sidewinder_profile(hdev, 1));
 }
 
 static int ms_event(struct hid_device *hdev, struct hid_field *field,
@@ -374,6 +374,7 @@ static struct hid_driver ms_driver = {
 	.report_fixup = ms_report_fixup,
 	.input_mapping = ms_input_mapping,
 	.input_mapped = ms_input_mapped,
+	.feature_mapping = ms_feature_mapping,
 	.event = ms_event,
 	.probe = ms_probe,
 };
