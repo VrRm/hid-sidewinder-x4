@@ -18,6 +18,7 @@
 #include <linux/device.h>
 #include <linux/hid.h>
 #include <linux/module.h>
+#include <linux/sysfs.h>
 #include <linux/usb/input.h>
 
 #include "hid-ids.h"
@@ -96,9 +97,9 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
-static int ms_sidewinder_set_leds(struct hid_device *hdev, uint8_t leds)
+static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 {
-	static uint8_t led_status = 0x00;
+	static __u8 led_status = 0x00;
 	struct hid_report *report =
 			hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[7];
 
@@ -113,7 +114,7 @@ static int ms_sidewinder_set_leds(struct hid_device *hdev, uint8_t leds)
 
 	report->field[1]->value[0] = (leds & 0x20) ? 0x01 : 0x00;	/* Record LED Breath */
 	report->field[1]->value[0] = (leds & 0x40) ? 0x02 : 0x00;	/* Record LED Blink */
-	report->field[1]->value[0] = (leds & 0x80) ? 0x03 : 0x00;	/* Record LED Solid */
+	report->field[1]->value[0] = (leds & 0x60) ? 0x03 : 0x00;	/* Record LED Solid */
 
 	if (led_status != leds) {
 		hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
@@ -123,9 +124,9 @@ static int ms_sidewinder_set_leds(struct hid_device *hdev, uint8_t leds)
 	return 0;
 }
 
-static int ms_sidewinder_profile(char get)
+static int ms_sidewinder_profile(__u8 get)
 {
-	static char profile = 1;
+	static __u8 profile = 1;
 
 	switch (get) {
 	case 0: profile++;	break;
@@ -137,6 +138,47 @@ static int ms_sidewinder_profile(char get)
 
 	return profile;
 }
+
+/* Sidewinder sysfs drivers */
+static ssize_t ms_sidewinder_led_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+
+	hid_get_drvdata(hdev);
+
+	return snprintf(buf, PAGE_SIZE, "0000\n");
+}
+
+static ssize_t ms_sidewinder_led_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	int value;
+
+	hid_get_drvdata(hdev);
+
+	if (kstrtoint(buf, 10, &value) || value < 1 || value > 255)
+		return -EINVAL;
+
+	ms_sidewinder_set_leds(hdev, 0x60);
+
+	return count;
+}
+
+static struct device_attribute dev_attr_ms_sidewinder_leds =
+	__ATTR(ms_sidewinder_leds, S_IWUSR | S_IRUGO,
+		ms_sidewinder_led_show,
+		ms_sidewinder_led_store);
+
+static struct attribute *ms_attributes[] = {
+	&dev_attr_ms_sidewinder_leds.attr,
+	NULL
+};
+
+static const struct attribute_group ms_attr_group = {
+	.attrs = ms_attributes,
+};
 
 static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
 		unsigned long **bit, int *max)
@@ -335,6 +377,10 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	if (ret) {
 		hid_err(hdev, "hw start failed\n");
 		goto err_free;
+	}
+
+	if (sysfs_create_group(&hdev->dev.kobj, &ms_attr_group)) {
+		hid_warn(hdev, "Could not create sysfs group\n");
 	}
 
 	return 0;
