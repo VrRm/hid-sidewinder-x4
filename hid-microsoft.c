@@ -97,11 +97,6 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
-struct ms_sidewinder_device
-{
-	struct mutex sysfs_lock;
-};
-
 static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 {
 	static __u8 led_status = 0x00;
@@ -159,25 +154,20 @@ static ssize_t ms_sidewinder_profile_store(struct device *dev,
 		struct device_attribute *attr, char const *buf, size_t count)
 {
 	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
-	struct ms_sidewinder_device *device = hid_get_drvdata(hdev);
-	//(dev_get_drvdata(dev->parent->parent))
 	int retval;
 	unsigned long profile;
+
+	hid_get_drvdata(hdev);
 
 	retval = strict_strtoul(buf, 10, &profile);
 		if (retval)
 			return retval;
 
-	mutex_lock(&device->sysfs_lock);
-
 	retval = ms_sidewinder_set_leds(hdev, 2);
 	if( retval )
 	{
-		mutex_unlock(&device->sysfs_lock);
 		return retval;
 	}
-
-	mutex_unlock(&device->sysfs_lock);
 
 	return count;
 }
@@ -399,22 +389,22 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	 * is attached.
 	 */
 	if (quirks & MS_SIDEWINDER) {
-		struct ms_sidewinder_device *device;
-
-		device = kzalloc(sizeof(struct ms_sidewinder_device), GFP_KERNEL);
-		hid_set_drvdata(hdev, device);
-		printk(KERN_DEBUG "Success");
-
 		if (sysfs_create_group(&hdev->dev.kobj, &ms_attr_group)) {
 			hid_warn(hdev, "Could not create sysfs group\n");
 		}
-
-		mutex_init(&device->sysfs_lock);
 	}
 
 	return 0;
 err_free:
 	return ret;
+}
+
+static void ms_remove(struct hid_device *hdev)
+{
+	sysfs_remove_group(&hdev->dev.kobj,
+		&ms_attr_group);
+
+	hid_hw_stop(hdev);
 }
 
 static const struct hid_device_id ms_devices[] = {
@@ -452,6 +442,7 @@ static struct hid_driver ms_driver = {
 	.feature_mapping = ms_feature_mapping,
 	.event = ms_event,
 	.probe = ms_probe,
+	.remove = ms_remove,
 };
 module_hid_driver(ms_driver);
 
