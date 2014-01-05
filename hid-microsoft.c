@@ -97,6 +97,11 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
+struct ms_sidewinder_device
+{
+	struct mutex sysfs_lock;
+};
+
 static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 {
 	static __u8 led_status = 0x00;
@@ -151,21 +156,30 @@ static ssize_t ms_sidewinder_profile_show(struct device *dev,
 }
 
 static ssize_t ms_sidewinder_profile_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+		struct device_attribute *attr, char const *buf, size_t count)
 {
 	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
-	int value;
+	struct ms_sidewinder_device *device = hid_get_drvdata(hdev);
+	//(dev_get_drvdata(dev->parent->parent))
+	int retval;
+	unsigned long profile;
 
-	hid_get_drvdata(hdev);
+	retval = strict_strtoul(buf, 10, &profile);
+		if (retval)
+			return retval;
 
-	if (sscanf(buf, "%1d", &value) != 1)
-		return -EINVAL;
+	mutex_lock(&device->sysfs_lock);
 
-	if (value == 1 || value == 0) {
-		printk(KERN_DEBUG "Success");
-		return strnlen(buf, PAGE_SIZE);
-	} else
-		return -EINVAL;
+	retval = ms_sidewinder_set_leds(hdev, 2);
+	if( retval )
+	{
+		mutex_unlock(&device->sysfs_lock);
+		return retval;
+	}
+
+	mutex_unlock(&device->sysfs_lock);
+
+	return count;
 }
 
 static struct device_attribute dev_attr_ms_sidewinder_profile =
@@ -384,8 +398,18 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	/* TODO: only create sysfs, when a Sidewinder keyboard
 	 * is attached.
 	 */
-	if (sysfs_create_group(&hdev->dev.kobj, &ms_attr_group)) {
-		hid_warn(hdev, "Could not create sysfs group\n");
+	if (quirks & MS_SIDEWINDER) {
+		struct ms_sidewinder_device *device;
+
+		device = kzalloc(sizeof(struct ms_sidewinder_device), GFP_KERNEL);
+		hid_set_drvdata(hdev, device);
+		printk(KERN_DEBUG "Success");
+
+		if (sysfs_create_group(&hdev->dev.kobj, &ms_attr_group)) {
+			hid_warn(hdev, "Could not create sysfs group\n");
+		}
+
+		mutex_init(&device->sysfs_lock);
 	}
 
 	return 0;
