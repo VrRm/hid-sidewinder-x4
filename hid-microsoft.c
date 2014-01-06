@@ -46,20 +46,20 @@ struct ms_sidewinder_extra {
 static __u8 *ms_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 		unsigned int *rsize)
 {
-	struct ms_data *mdata = hid_get_drvdata(hdev);
+	struct ms_data *sc = hid_get_drvdata(hdev);
 
 	/*
 	 * Microsoft Wireless Desktop Receiver (Model 1028) has
 	 * 'Usage Min/Max' where it ought to have 'Physical Min/Max'
 	 */
-	if ((mdata->quirks & MS_RDESC) && *rsize == 571 && rdesc[557] == 0x19 &&
+	if ((sc->quirks & MS_RDESC) && *rsize == 571 && rdesc[557] == 0x19 &&
 			rdesc[559] == 0x29) {
 		hid_info(hdev, "fixing up Microsoft Wireless Receiver Model 1028 report descriptor\n");
 		rdesc[557] = 0x35;
 		rdesc[559] = 0x45;
 	}
 	/* the same as above (s/usage/physical/) */
-	if ((mdata->quirks & MS_RDESC_3K) && *rsize == 106 && rdesc[94] == 0x19 &&
+	if ((sc->quirks & MS_RDESC_3K) && *rsize == 106 && rdesc[94] == 0x19 &&
 			rdesc[95] == 0x00 && rdesc[96] == 0x29 &&
 			rdesc[97] == 0xff) {
 		rdesc[94] = 0x35;
@@ -135,19 +135,23 @@ static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 	return 0;
 }
 
-static int ms_sidewinder_profile_status(__u8 get)
+static int ms_sidewinder_profile_status(struct hid_device *hdev, __u8 get)
 {
-	static __u8 profile = 1;
+	struct ms_data *sc;
+	struct ms_sidewinder_extra *sidewinder;
+
+	sc = hid_get_drvdata(hdev);
+	sidewinder = sc->extra;
 
 	switch (get) {
-	case 0: profile++;	break;
+	case 0: sidewinder->profile++;	break;
 	case 1: break;
 	}
 
-	if (profile < 1 || profile > 3)
-		profile = 1;
+	if (sidewinder->profile < 1 || sidewinder->profile > 3)
+		sidewinder->profile = 1;
 
-	return profile;
+	return sidewinder->profile;
 }
 
 /* Sidewinder sysfs drivers
@@ -158,7 +162,7 @@ static int ms_sidewinder_profile_status(__u8 get)
 static ssize_t ms_sidewinder_profile_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%u\n", ms_sidewinder_profile_status(1));
+	return snprintf(buf, PAGE_SIZE, "1");
 }
 
 static ssize_t ms_sidewinder_profile_store(struct device *dev,
@@ -220,20 +224,20 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
-	struct ms_data *mdata = hid_get_drvdata(hdev);
+	struct ms_data *sc = hid_get_drvdata(hdev);
 
 	if ((usage->hid & HID_USAGE_PAGE) != HID_UP_MSVENDOR)
 		return 0;
 
-	if ((mdata->quirks & MS_ERGONOMY) &&
+	if ((sc->quirks & MS_ERGONOMY) &&
 			ms_ergonomy_kb_quirk(hi, usage, bit, max))
 		return 1;
 
-	if ((mdata->quirks & MS_PRESENTER) &&
+	if ((sc->quirks & MS_PRESENTER) &&
 			ms_presenter_8k_quirk(hi, usage, bit, max))
 		return 1;
 		
-	if ((mdata->quirks & MS_SIDEWINDER) &&
+	if ((sc->quirks & MS_SIDEWINDER) &&
 			ms_sidewinder_kb_quirk(hi, usage, bit, max))
 		return 1;
 
@@ -244,9 +248,9 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
-	struct ms_data *mdata = hid_get_drvdata(hdev);
+	struct ms_data *sc = hid_get_drvdata(hdev);
 
-	if (mdata->quirks & MS_DUPLICATE_USAGES)
+	if (sc->quirks & MS_DUPLICATE_USAGES)
 		clear_bit(usage->code, *bit);
 
 	return 0;
@@ -256,23 +260,23 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 static void ms_feature_mapping(struct hid_device *hdev,
 		struct hid_field *field, struct hid_usage *usage)
 {
-	struct ms_data *mdata = hid_get_drvdata(hdev);
+	struct ms_data *sc = hid_get_drvdata(hdev);
 
-	if (mdata->quirks & MS_SIDEWINDER)
-		ms_sidewinder_set_leds(hdev, 1 << ms_sidewinder_profile_status(1));
+	if (sc->quirks & MS_SIDEWINDER)
+		ms_sidewinder_set_leds(hdev, 1 << ms_sidewinder_profile_status(hdev, 1));
 }
 
 static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		struct hid_usage *usage, __s32 value)
 {
-	struct ms_data *mdata = hid_get_drvdata(hdev);
+	struct ms_data *sc = hid_get_drvdata(hdev);
 
 	if (!(hdev->claimed & HID_CLAIMED_INPUT) || !field->hidinput ||
 			!usage->type)
 		return 0;
 
 	/* Handling MS keyboards special buttons */
-	if (mdata->quirks & MS_ERGONOMY && usage->hid == (HID_UP_MSVENDOR | 0xff05)) {
+	if (sc->quirks & MS_ERGONOMY && usage->hid == (HID_UP_MSVENDOR | 0xff05)) {
 		struct input_dev *input = field->hidinput->input;
 		static unsigned int last_key = 0;
 		unsigned int key = 0;
@@ -293,7 +297,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 	}
 
 	/* Sidewinder special button handling & profile switching */
-	if (mdata->quirks & MS_SIDEWINDER &&
+	if (sc->quirks & MS_SIDEWINDER &&
 			(usage->hid == (HID_UP_MSVENDOR | 0xfb01) ||
 			usage->hid == (HID_UP_MSVENDOR | 0xfb02) ||
 			usage->hid == (HID_UP_MSVENDOR | 0xfb03) ||
@@ -305,7 +309,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		struct input_dev *input = field->hidinput->input;
 		switch (usage->hid ^ HID_UP_MSVENDOR) {
 		case 0xfb01: /* S1 */
-			switch (ms_sidewinder_profile_status(1)) {
+			switch (ms_sidewinder_profile_status(hdev, 1)) {
 			case 1: input_event(input, usage->type, KEY_FN_F7, value);	break; /* Bank 1 */
 			case 2: input_event(input, usage->type, KEY_F13, value);	break; /* Bank 2 */
 			case 3: input_event(input, usage->type, KEY_F19, value);	break; /* Bank 3 */
@@ -314,7 +318,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			}
 			break;
 		case 0xfb02: /* S2 */
-			switch (ms_sidewinder_profile_status(1)) {
+			switch (ms_sidewinder_profile_status(hdev, 1)) {
 			case 1: input_event(input, usage->type, KEY_FN_F8, value);	break;
 			case 2: input_event(input, usage->type, KEY_F14, value);	break;
 			case 3: input_event(input, usage->type, KEY_F20, value);	break;
@@ -323,7 +327,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			}
 			break;
 		case 0xfb03: /* S3 */
-			switch (ms_sidewinder_profile_status(1)) {
+			switch (ms_sidewinder_profile_status(hdev, 1)) {
 			case 1: input_event(input, usage->type, KEY_FN_F9, value);	break;
 			case 2: input_event(input, usage->type, KEY_F15, value);	break;
 			case 3: input_event(input, usage->type, KEY_F21, value);	break;
@@ -332,7 +336,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			}
 			break;
 		case 0xfb04: /* S4 */
-			switch (ms_sidewinder_profile_status(1)) {
+			switch (ms_sidewinder_profile_status(hdev, 1)) {
 			case 1: input_event(input, usage->type, KEY_FN_F10, value);	break;
 			case 2: input_event(input, usage->type, KEY_F16, value);	break;
 			case 3: input_event(input, usage->type, KEY_F22, value);	break;
@@ -341,7 +345,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			}
 			break;
 		case 0xfb05: /* S5 */
-			switch (ms_sidewinder_profile_status(1)) {
+			switch (ms_sidewinder_profile_status(hdev, 1)) {
 			case 1: input_event(input, usage->type, KEY_FN_F11, value);	break;
 			case 2: input_event(input, usage->type, KEY_F17, value);	break;
 			case 3: input_event(input, usage->type, KEY_F23, value);	break;
@@ -350,7 +354,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			}
 			break;
 		case 0xfb06: /* S6 */
-			switch (ms_sidewinder_profile_status(1)) {
+			switch (ms_sidewinder_profile_status(hdev, 1)) {
 			case 1: input_event(input, usage->type, KEY_FN_F12, value);	break;
 			case 2: input_event(input, usage->type, KEY_F18, value);	break;
 			case 3: input_event(input, usage->type, KEY_F24, value);	break;
@@ -361,7 +365,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		case 0xfd12: input_event(input, usage->type, KEY_MACRO, value);	break;
 		case 0xfd15:
 			if (value)
-				ms_sidewinder_set_leds(hdev, 1 << ms_sidewinder_profile_status(0));
+				ms_sidewinder_set_leds(hdev, 1 << ms_sidewinder_profile_status(hdev, 0));
 			break;
 		default:
 			return 0;
@@ -375,20 +379,19 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 
 static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
-	struct ms_data *mdata;
-	unsigned long quirks = id->driver_data;
+	struct ms_data *sc;
 	int ret;
 
-	mdata = devm_kzalloc(&hdev->dev, sizeof(struct ms_data), GFP_KERNEL);
-	if (!mdata) {
+	sc = devm_kzalloc(&hdev->dev, sizeof(struct ms_data), GFP_KERNEL);
+	if (!sc) {
 		hid_err(hdev, "can't alloc microsoft descriptor\n");
 		return -ENOMEM;
 	}
 
-	mdata->quirks = quirks;
-	hid_set_drvdata(hdev, mdata);
+	sc->quirks = id->driver_data;
+	hid_set_drvdata(hdev, sc);
 
-	if (mdata->quirks & MS_NOGET)
+	if (sc->quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
 
 	ret = hid_parse(hdev);
@@ -397,7 +400,7 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		goto err_free;
 	}
 
-	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT | ((mdata->quirks & MS_HIDINPUT) ?
+	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT | ((sc->quirks & MS_HIDINPUT) ?
 				HID_CONNECT_HIDINPUT_FORCE : 0));
 	if (ret) {
 		hid_err(hdev, "hw start failed\n");
@@ -407,7 +410,18 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	/* TODO: only create sysfs, when a Sidewinder keyboard
 	 * is attached.
 	 */
-	if (mdata->quirks & MS_SIDEWINDER) {
+	if (sc->quirks & MS_SIDEWINDER) {
+		struct ms_sidewinder_extra *sidewinder;
+
+		sidewinder = devm_kzalloc(&hdev->dev, sizeof(struct ms_sidewinder_extra),
+					GFP_KERNEL);
+		if (!sidewinder) {
+			hid_err(hdev, "can't alloc microsoft descriptor\n");
+			return -ENOMEM;
+		}
+		sc->extra = sidewinder;
+		hid_set_drvdata(hdev, sc);
+
 		if (sysfs_create_group(&hdev->dev.kobj, &ms_attr_group)) {
 			hid_warn(hdev, "Could not create sysfs group\n");
 		}
