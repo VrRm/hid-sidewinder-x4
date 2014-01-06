@@ -39,7 +39,7 @@ struct ms_data {
 };
 
 struct ms_sidewinder_extra {
-	__u8 profile;
+	int profile;
 	__u8 led_state;
 };
 
@@ -146,29 +146,28 @@ static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 static ssize_t ms_sidewinder_profile_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "1");
+	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct ms_data *sc = hid_get_drvdata(hdev);
+	struct ms_sidewinder_extra *sidewinder = sc->extra;
+
+	return snprintf(buf, PAGE_SIZE, "%1d", sidewinder->profile);
 }
 
 static ssize_t ms_sidewinder_profile_store(struct device *dev,
 		struct device_attribute *attr, char const *buf, size_t count)
 {
 	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
-	int retval;
-	unsigned long profile;
+	struct ms_data *sc = hid_get_drvdata(hdev);
+	struct ms_sidewinder_extra *sidewinder = sc->extra;
 
-	hid_get_drvdata(hdev);
+	if (sscanf(buf, "%1d", &sidewinder->profile) != 1)
+		return -EINVAL;
 
-	retval = strict_strtoul(buf, 10, &profile);
-		if (retval)
-			return retval;
-
-	retval = ms_sidewinder_set_leds(hdev, 2);
-	if( retval )
-	{
-		return retval;
-	}
-
-	return count;
+	if (sidewinder->profile >= 1 || sidewinder->profile <= 3) {
+		ms_sidewinder_set_leds(hdev, 1 << sidewinder->profile);
+		return strnlen(buf, PAGE_SIZE);
+	} else
+		return -EINVAL;
 }
 
 static struct device_attribute dev_attr_ms_sidewinder_profile =
@@ -240,7 +239,7 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 	return 0;
 }
 
-/* Setting initial profile LED of Sidewinder keyboards */
+/* Setting initial profile and LED of Sidewinder keyboards */
 static void ms_feature_mapping(struct hid_device *hdev,
 		struct hid_field *field, struct hid_usage *usage)
 {
@@ -355,9 +354,9 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		case 0xfd12: input_event(input, usage->type, KEY_MACRO, value);	break;
 		case 0xfd15:
 			if (value) {
-				if (sidewinder->profile < 1 || sidewinder->profile >= 3)
+				if (sidewinder->profile < 1 || sidewinder->profile >= 3) {
 					sidewinder->profile = 1;
-				else
+				} else
 					sidewinder->profile++;
 				ms_sidewinder_set_leds(hdev, 1 << sidewinder->profile);
 			}
