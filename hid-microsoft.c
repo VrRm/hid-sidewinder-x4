@@ -205,13 +205,14 @@ static ssize_t ms_sidewinder_record_store(struct device *dev,
 	struct ms_data *sc = hid_get_drvdata(hdev);
 	struct ms_sidewinder_extra *sidewinder = sc->extra;
 	int record;
+	__u8 leds;
 
 	if (sscanf(buf, "%1d", &record) != 1)
 		return -EINVAL;
 
 	if (record >= 1 && record <= 3) {
-		sidewinder->led_state |= (0x10 << record);
-		ms_sidewinder_set_leds(hdev, sidewinder->led_state);
+		leds = sidewinder->led_state | 0x10 << record;
+		ms_sidewinder_set_leds(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else
 		return -EINVAL;
