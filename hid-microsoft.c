@@ -124,13 +124,16 @@ static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 	report->field[0]->value[3] = (leds & 0x04) ? 0x01 : 0x00;	/* LED 2 */
 	report->field[0]->value[4] = (leds & 0x08) ? 0x01 : 0x00;	/* LED 3 */
 
-	report->field[1]->value[0] = (leds & 0x20) ? 0x01 : 0x00;	/* Record LED Breath */
-	report->field[1]->value[0] = (leds & 0x40) ? 0x02 : 0x00;	/* Record LED Blink */
-	report->field[1]->value[0] = (leds & 0x60) ? 0x03 : 0x00;	/* Record LED Solid */
+	if (leds & 0x00)
+		report->field[1]->value[0] = 0x00;
+	if (leds & 0x20)
+		report->field[1]->value[0] = 0x01;	/* Record LED Breath */
+	if (leds & 0x40)
+		report->field[1]->value[0] = 0x02;	/* Record LED Blink */
+	if (leds & 0x60)
+		report->field[1]->value[0] = 0x03;	/* Record LED Solid */
 
-	printk(KERN_DEBUG "Outside");
 	if (sidewinder->led_state != leds) {
-		printk(KERN_DEBUG "Inside");
 		hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
 		sidewinder->led_state = leds;
 	}
@@ -150,10 +153,89 @@ static ssize_t ms_sidewinder_profile_show(struct device *dev,
 	struct ms_data *sc = hid_get_drvdata(hdev);
 	struct ms_sidewinder_extra *sidewinder = sc->extra;
 
-	return snprintf(buf, PAGE_SIZE, "%1d", sidewinder->profile);
+	return snprintf(buf, PAGE_SIZE, "%1d\n", sidewinder->profile);
 }
 
 static ssize_t ms_sidewinder_profile_store(struct device *dev,
+		struct device_attribute *attr, char const *buf, size_t count)
+{
+	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct ms_data *sc = hid_get_drvdata(hdev);
+	struct ms_sidewinder_extra *sidewinder = sc->extra;
+
+	if (sscanf(buf, "%1d", &sidewinder->profile) != 1)
+		return -EINVAL;
+
+	if (sidewinder->profile >= 1 && sidewinder->profile <= 3) {
+		ms_sidewinder_set_leds(hdev, 1 << sidewinder->profile);
+		return strnlen(buf, PAGE_SIZE);
+	} else
+		return -EINVAL;
+}
+
+static struct device_attribute dev_attr_ms_sidewinder_profile =
+	__ATTR(ms_sidewinder_profile, S_IWUSR | S_IRUGO,
+		ms_sidewinder_profile_show,
+		ms_sidewinder_profile_store);
+
+static ssize_t ms_sidewinder_record_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct ms_data *sc = hid_get_drvdata(hdev);
+	struct ms_sidewinder_extra *sidewinder = sc->extra;
+	int record;
+
+	record = (sidewinder->led_state & 0x20) ? 0x01 : 0x00;
+	record = (sidewinder->led_state & 0x40) ? 0x02 : 0x00;
+	record = (sidewinder->led_state & 0x60) ? 0x03 : 0x00;
+
+	if (sidewinder->led_state & 0x00)
+		record = 0x00;
+	if (sidewinder->led_state & 0x20)
+		record = 0x01;
+	if (sidewinder->led_state & 0x40)
+		record = 0x02;
+	if (sidewinder->led_state & 0x60)
+		record = 0x03;
+
+	return snprintf(buf, PAGE_SIZE, "%1d\n", record);
+}
+
+static ssize_t ms_sidewinder_record_store(struct device *dev,
+		struct device_attribute *attr, char const *buf, size_t count)
+{
+	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct ms_data *sc = hid_get_drvdata(hdev);
+	struct ms_sidewinder_extra *sidewinder = sc->extra;
+	int record;
+
+	if (sscanf(buf, "%1d", &record) != 1)
+		return -EINVAL;
+
+	if (record >= 1 && record <= 3) {
+		ms_sidewinder_set_leds(hdev, 0x10 << record);
+		return strnlen(buf, PAGE_SIZE);
+	} else
+		return -EINVAL;
+}
+
+static struct device_attribute dev_attr_ms_sidewinder_record =
+	__ATTR(ms_sidewinder_record, S_IWUSR | S_IRUGO,
+		ms_sidewinder_record_show,
+		ms_sidewinder_record_store);
+
+static ssize_t ms_sidewinder_auto_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
+	struct ms_data *sc = hid_get_drvdata(hdev);
+	struct ms_sidewinder_extra *sidewinder = sc->extra;
+
+	return snprintf(buf, PAGE_SIZE, "%1d\n", sidewinder->profile);
+}
+
+static ssize_t ms_sidewinder_auto_store(struct device *dev,
 		struct device_attribute *attr, char const *buf, size_t count)
 {
 	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
@@ -170,13 +252,15 @@ static ssize_t ms_sidewinder_profile_store(struct device *dev,
 		return -EINVAL;
 }
 
-static struct device_attribute dev_attr_ms_sidewinder_profile =
-	__ATTR(ms_sidewinder_profile, S_IWUSR | S_IRUGO,
-		ms_sidewinder_profile_show,
-		ms_sidewinder_profile_store);
+static struct device_attribute dev_attr_ms_sidewinder_auto =
+	__ATTR(ms_sidewinder_auto, S_IWUSR | S_IRUGO,
+		ms_sidewinder_auto_show,
+		ms_sidewinder_auto_store);
 
 static struct attribute *ms_attributes[] = {
 	&dev_attr_ms_sidewinder_profile.attr,
+	&dev_attr_ms_sidewinder_record.attr,
+	&dev_attr_ms_sidewinder_auto.attr,
 	NULL
 };
 
