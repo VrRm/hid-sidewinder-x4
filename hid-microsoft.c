@@ -138,6 +138,7 @@ static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 	return 0;
 }
 
+#if 0
 /* Sidewinder sysfs drivers
  * @ms_sidewinder_profile: show and set profile count and LED status
  * @ms_sidewinder_auto_led: show and set LED Auto
@@ -184,6 +185,7 @@ static struct attribute *ms_attributes[] = {
 static const struct attribute_group ms_attr_group = {
 	.attrs = ms_attributes,
 };
+#endif
 
 static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
 		unsigned long **bit, int *max)
@@ -414,10 +416,11 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 			return -ENOMEM;
 		}
 		sc->extra = sidewinder;
-
+#if 0
 		if (sysfs_create_group(&hdev->dev.kobj, &ms_attr_group)) {
 			hid_warn(hdev, "Could not create sysfs group\n");
 		}
+#endif
 	}
 
 	return 0;
@@ -425,6 +428,7 @@ err_free:
 	return ret;
 }
 
+#if 0
 static void ms_remove(struct hid_device *hdev)
 {
 	sysfs_remove_group(&hdev->dev.kobj,
@@ -432,6 +436,7 @@ static void ms_remove(struct hid_device *hdev)
 
 	hid_hw_stop(hdev);
 }
+#endif
 
 static const struct hid_device_id ms_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_SIDEWINDER_GV),
@@ -468,7 +473,7 @@ static struct hid_driver ms_driver = {
 	.feature_mapping = ms_feature_mapping,
 	.event = ms_event,
 	.probe = ms_probe,
-	.remove = ms_remove,
+	//.remove = ms_remove,
 };
 module_hid_driver(ms_driver);
 
