@@ -124,14 +124,14 @@ static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 	report->field[0]->value[3] = (leds & 0x04) ? 0x01 : 0x00;	/* LED 2 */
 	report->field[0]->value[4] = (leds & 0x08) ? 0x01 : 0x00;	/* LED 3 */
 
-	if (leds & 0x00)
-		report->field[1]->value[0] = 0x00;
-	if (leds & 0x20)
-		report->field[1]->value[0] = 0x01;	/* Record LED Breath */
-	if (leds & 0x40)
-		report->field[1]->value[0] = 0x02;	/* Record LED Blink */
-	if (leds & 0x60)
+	if (leds & 0x80)
 		report->field[1]->value[0] = 0x03;	/* Record LED Solid */
+	else if (leds & 0x40)
+		report->field[1]->value[0] = 0x02;	/* Record LED Blink */
+	else if (leds & 0x20)
+		report->field[1]->value[0] = 0x01;	/* Record LED Breath */
+	else
+		report->field[1]->value[0] = 0x00;
 
 	if (sidewinder->led_state != leds) {
 		hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
@@ -186,18 +186,14 @@ static ssize_t ms_sidewinder_record_show(struct device *dev,
 	struct ms_sidewinder_extra *sidewinder = sc->extra;
 	int record;
 
-	record = (sidewinder->led_state & 0x20) ? 0x01 : 0x00;
-	record = (sidewinder->led_state & 0x40) ? 0x02 : 0x00;
-	record = (sidewinder->led_state & 0x60) ? 0x03 : 0x00;
-
-	if (sidewinder->led_state & 0x00)
-		record = 0x00;
-	if (sidewinder->led_state & 0x20)
-		record = 0x01;
-	if (sidewinder->led_state & 0x40)
-		record = 0x02;
-	if (sidewinder->led_state & 0x60)
+	if (sidewinder->led_state & 0x80)
 		record = 0x03;
+	else if (sidewinder->led_state & 0x40)
+		record = 0x02;
+	else if (sidewinder->led_state & 0x20)
+		record = 0x01;
+	else
+		record = 0x00;
 
 	return snprintf(buf, PAGE_SIZE, "%1d\n", record);
 }
@@ -214,7 +210,8 @@ static ssize_t ms_sidewinder_record_store(struct device *dev,
 		return -EINVAL;
 
 	if (record >= 1 && record <= 3) {
-		ms_sidewinder_set_leds(hdev, 0x10 << record);
+		sidewinder->led_state |= (0x10 << record);
+		ms_sidewinder_set_leds(hdev, sidewinder->led_state);
 		return strnlen(buf, PAGE_SIZE);
 	} else
 		return -EINVAL;
@@ -369,14 +366,9 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 
 	/* Sidewinder special button handling & profile switching */
 	if (sc->quirks & MS_SIDEWINDER &&
-			(usage->hid == (HID_UP_MSVENDOR | 0xfb01) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfb02) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfb03) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfb04) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfb05) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfb06) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfd12) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfd15))) {
+			(usage->hid == (HID_UP_MSVENDOR | (0xfb01 ||
+			0xfb02 || 0xfb03 || 0xfb04 || 0xfb05 || 0xfb06 ||
+			0xfd12 || 0xfd15)))) {
 		struct input_dev *input = field->hidinput->input;
 		struct ms_sidewinder_extra *sidewinder = sc->extra;
 
