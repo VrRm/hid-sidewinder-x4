@@ -366,9 +366,14 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 
 	/* Sidewinder special button handling & profile switching */
 	if (sc->quirks & MS_SIDEWINDER &&
-			(usage->hid == (HID_UP_MSVENDOR | (0xfb01 ||
-			0xfb02 || 0xfb03 || 0xfb04 || 0xfb05 || 0xfb06 ||
-			0xfd12 || 0xfd15)))) {
+			(usage->hid == (HID_UP_MSVENDOR | 0xfb01) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfb02) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfb03) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfb04) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfb05) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfb06) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfd12) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfd15))) {
 		struct input_dev *input = field->hidinput->input;
 		struct ms_sidewinder_extra *sidewinder = sc->extra;
 
