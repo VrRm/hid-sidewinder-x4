@@ -18,6 +18,7 @@
 #include <linux/device.h>
 #include <linux/hid.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/usb/input.h>
 
@@ -32,23 +33,33 @@
 #define MS_RDESC_3K		0x40
 #define MS_SIDEWINDER	0x80
 
+struct ms_data {
+	unsigned long quirks;
+	void *extra;
+};
+
+struct ms_sidewinder_extra {
+	__u8 profile;
+	__u8 led_state;
+};
+
 static __u8 *ms_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 		unsigned int *rsize)
 {
-	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+	struct ms_data *mdata = hid_get_drvdata(hdev);
 
 	/*
 	 * Microsoft Wireless Desktop Receiver (Model 1028) has
 	 * 'Usage Min/Max' where it ought to have 'Physical Min/Max'
 	 */
-	if ((quirks & MS_RDESC) && *rsize == 571 && rdesc[557] == 0x19 &&
+	if ((mdata->quirks & MS_RDESC) && *rsize == 571 && rdesc[557] == 0x19 &&
 			rdesc[559] == 0x29) {
 		hid_info(hdev, "fixing up Microsoft Wireless Receiver Model 1028 report descriptor\n");
 		rdesc[557] = 0x35;
 		rdesc[559] = 0x45;
 	}
 	/* the same as above (s/usage/physical/) */
-	if ((quirks & MS_RDESC_3K) && *rsize == 106 && rdesc[94] == 0x19 &&
+	if ((mdata->quirks & MS_RDESC_3K) && *rsize == 106 && rdesc[94] == 0x19 &&
 			rdesc[95] == 0x00 && rdesc[96] == 0x29 &&
 			rdesc[97] == 0xff) {
 		rdesc[94] = 0x35;
@@ -209,20 +220,20 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
-	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+	struct ms_data *mdata = hid_get_drvdata(hdev);
 
 	if ((usage->hid & HID_USAGE_PAGE) != HID_UP_MSVENDOR)
 		return 0;
 
-	if ((quirks & MS_ERGONOMY) &&
+	if ((mdata->quirks & MS_ERGONOMY) &&
 			ms_ergonomy_kb_quirk(hi, usage, bit, max))
 		return 1;
 
-	if ((quirks & MS_PRESENTER) &&
+	if ((mdata->quirks & MS_PRESENTER) &&
 			ms_presenter_8k_quirk(hi, usage, bit, max))
 		return 1;
 		
-	if ((quirks & MS_SIDEWINDER) &&
+	if ((mdata->quirks & MS_SIDEWINDER) &&
 			ms_sidewinder_kb_quirk(hi, usage, bit, max))
 		return 1;
 
@@ -233,9 +244,9 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
-	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+	struct ms_data *mdata = hid_get_drvdata(hdev);
 
-	if (quirks & MS_DUPLICATE_USAGES)
+	if (mdata->quirks & MS_DUPLICATE_USAGES)
 		clear_bit(usage->code, *bit);
 
 	return 0;
@@ -245,23 +256,23 @@ static int ms_input_mapped(struct hid_device *hdev, struct hid_input *hi,
 static void ms_feature_mapping(struct hid_device *hdev,
 		struct hid_field *field, struct hid_usage *usage)
 {
-	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+	struct ms_data *mdata = hid_get_drvdata(hdev);
 
-	if (quirks & MS_SIDEWINDER)
+	if (mdata->quirks & MS_SIDEWINDER)
 		ms_sidewinder_set_leds(hdev, 1 << ms_sidewinder_profile_status(1));
 }
 
 static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		struct hid_usage *usage, __s32 value)
 {
-	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+	struct ms_data *mdata = hid_get_drvdata(hdev);
 
 	if (!(hdev->claimed & HID_CLAIMED_INPUT) || !field->hidinput ||
 			!usage->type)
 		return 0;
 
 	/* Handling MS keyboards special buttons */
-	if (quirks & MS_ERGONOMY && usage->hid == (HID_UP_MSVENDOR | 0xff05)) {
+	if (mdata->quirks & MS_ERGONOMY && usage->hid == (HID_UP_MSVENDOR | 0xff05)) {
 		struct input_dev *input = field->hidinput->input;
 		static unsigned int last_key = 0;
 		unsigned int key = 0;
@@ -282,7 +293,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 	}
 
 	/* Sidewinder special button handling & profile switching */
-	if (quirks & MS_SIDEWINDER &&
+	if (mdata->quirks & MS_SIDEWINDER &&
 			(usage->hid == (HID_UP_MSVENDOR | 0xfb01) ||
 			usage->hid == (HID_UP_MSVENDOR | 0xfb02) ||
 			usage->hid == (HID_UP_MSVENDOR | 0xfb03) ||
@@ -364,12 +375,20 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 
 static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
+	struct ms_data *mdata;
 	unsigned long quirks = id->driver_data;
 	int ret;
 
-	hid_set_drvdata(hdev, (void *)quirks);
+	mdata = devm_kzalloc(&hdev->dev, sizeof(struct ms_data), GFP_KERNEL);
+	if (!mdata) {
+		hid_err(hdev, "can't alloc microsoft descriptor\n");
+		return -ENOMEM;
+	}
 
-	if (quirks & MS_NOGET)
+	mdata->quirks = quirks;
+	hid_set_drvdata(hdev, mdata);
+
+	if (mdata->quirks & MS_NOGET)
 		hdev->quirks |= HID_QUIRK_NOGET;
 
 	ret = hid_parse(hdev);
@@ -378,7 +397,7 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		goto err_free;
 	}
 
-	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT | ((quirks & MS_HIDINPUT) ?
+	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT | ((mdata->quirks & MS_HIDINPUT) ?
 				HID_CONNECT_HIDINPUT_FORCE : 0));
 	if (ret) {
 		hid_err(hdev, "hw start failed\n");
@@ -388,7 +407,7 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	/* TODO: only create sysfs, when a Sidewinder keyboard
 	 * is attached.
 	 */
-	if (quirks & MS_SIDEWINDER) {
+	if (mdata->quirks & MS_SIDEWINDER) {
 		if (sysfs_create_group(&hdev->dev.kobj, &ms_attr_group)) {
 			hid_warn(hdev, "Could not create sysfs group\n");
 		}
