@@ -353,8 +353,13 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			break;
 		case 0xfd12: input_event(input, usage->type, KEY_MACRO, value);	break;
 		case 0xfd15:
-			if (value)
+			if (value) {
+				if (sidewinder->profile < 1 || sidewinder->profile >= 3)
+					sidewinder->profile = 1;
+				else
+					sidewinder->profile++;
 				ms_sidewinder_set_leds(hdev, 1 << sidewinder->profile);
+			}
 			break;
 		default:
 			return 0;
