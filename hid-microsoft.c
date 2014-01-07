@@ -17,10 +17,11 @@
 
 #include <linux/device.h>
 #include <linux/hid.h>
+#include <linux/input.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/sysfs.h>
-#include <linux/usb/input.h>
+#include <linux/usb.h>
 
 #include "hid-ids.h"
 
@@ -279,12 +280,12 @@ static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
 {
 	set_bit(EV_REP, hi->input->evbit);
 	switch (usage->hid & HID_USAGE) {
-	case 0xfb01: ms_map_key_clear(KEY_FN_F7);	break;
-	case 0xfb02: ms_map_key_clear(KEY_FN_F8);	break;
-	case 0xfb03: ms_map_key_clear(KEY_FN_F9);	break;
-	case 0xfb04: ms_map_key_clear(KEY_FN_F10);	break;
-	case 0xfb05: ms_map_key_clear(KEY_FN_F11);	break;
-	case 0xfb06: ms_map_key_clear(KEY_FN_F12);	break;
+	case 0xfb01: ms_map_key_clear(KEY_F13);	break;
+	case 0xfb02: ms_map_key_clear(KEY_F14);	break;
+	case 0xfb03: ms_map_key_clear(KEY_F15);	break;
+	case 0xfb04: ms_map_key_clear(KEY_F16);	break;
+	case 0xfb05: ms_map_key_clear(KEY_F17);	break;
+	case 0xfb06: ms_map_key_clear(KEY_F18);	break;
 	case 0xfd12: ms_map_key_clear(KEY_MACRO);	break;
 	case 0xfd15: ms_map_key_clear(KEY_UNKNOWN);	break;
 	default:
@@ -390,54 +391,54 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		switch (usage->hid ^ HID_UP_MSVENDOR) {
 		case 0xfb01: /* S1 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_FN_F7, value);	break; /* Bank 1 */
-			case 2: input_event(input, usage->type, KEY_F13, value);	break; /* Bank 2 */
-			case 3: input_event(input, usage->type, KEY_F19, value);	break; /* Bank 3 */
+			case 1: input_event(input, usage->type, KEY_F13, value);	break;
+			case 2: input_event(input, usage->type, KEY_F19, value);	break;
+			case 3: input_event(input, usage->type, BTN_0, value);	break;
 			default:
 				return 0;
 			}
 			break;
 		case 0xfb02: /* S2 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_FN_F8, value);	break;
-			case 2: input_event(input, usage->type, KEY_F14, value);	break;
-			case 3: input_event(input, usage->type, KEY_F20, value);	break;
+			case 1: input_event(input, usage->type, KEY_F14, value);	break;
+			case 2: input_event(input, usage->type, KEY_F20, value);	break;
+			case 3: input_event(input, usage->type, BTN_1, value);	break;
 			default:
 				return 0;
 			}
 			break;
 		case 0xfb03: /* S3 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_FN_F9, value);	break;
-			case 2: input_event(input, usage->type, KEY_F15, value);	break;
-			case 3: input_event(input, usage->type, KEY_F21, value);	break;
+			case 1: input_event(input, usage->type, KEY_F15, value);	break;
+			case 2: input_event(input, usage->type, KEY_F21, value);	break;
+			case 3: input_event(input, usage->type, BTN_2, value);	break;
 			default:
 				return 0;
 			}
 			break;
 		case 0xfb04: /* S4 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_FN_F10, value);	break;
-			case 2: input_event(input, usage->type, KEY_F16, value);	break;
-			case 3: input_event(input, usage->type, KEY_F22, value);	break;
+			case 1: input_event(input, usage->type, KEY_F16, value);	break;
+			case 2: input_event(input, usage->type, KEY_F22, value);	break;
+			case 3: input_event(input, usage->type, BTN_3, value);	break;
 			default:
 				return 0;
 			}
 			break;
 		case 0xfb05: /* S5 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_FN_F11, value);	break;
-			case 2: input_event(input, usage->type, KEY_F17, value);	break;
-			case 3: input_event(input, usage->type, KEY_F23, value);	break;
+			case 1: input_event(input, usage->type, KEY_F17, value);	break;
+			case 2: input_event(input, usage->type, KEY_F23, value);	break;
+			case 3: input_event(input, usage->type, BTN_4, value);	break;
 			default:
 				return 0;
 			}
 			break;
 		case 0xfb06: /* S6 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_FN_F12, value);	break;
-			case 2: input_event(input, usage->type, KEY_F18, value);	break;
-			case 3: input_event(input, usage->type, KEY_F24, value);	break;
+			case 1: input_event(input, usage->type, KEY_F18, value);	break;
+			case 2: input_event(input, usage->type, KEY_F24, value);	break;
+			case 3: input_event(input, usage->type, BTN_5, value);	break;
 			default:
 				return 0;
 			}
