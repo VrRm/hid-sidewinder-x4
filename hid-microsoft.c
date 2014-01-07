@@ -210,8 +210,9 @@ static ssize_t ms_sidewinder_record_store(struct device *dev,
 	if (sscanf(buf, "%1d", &record_led) != 1)
 		return -EINVAL;
 
-	if (record_led <= 3) {
-		leds = sidewinder->led_state | 0x10 << record_led;
+	if (record_led >= 0 && record_led <= 3) {
+		leds = sidewinder->led_state & ~(0xf0);	/* Clear Record LED */
+		leds |= 0x10 << record_led;
 		ms_sidewinder_set_leds(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else
@@ -229,12 +230,8 @@ static ssize_t ms_sidewinder_auto_show(struct device *dev,
 	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
 	struct ms_data *sc = hid_get_drvdata(hdev);
 	struct ms_sidewinder_extra *sidewinder = sc->extra;
-	unsigned int auto_led = 0;
 
-	if (sidewinder->led_state & 0x01)
-		auto_led = 1;
-
-	return snprintf(buf, PAGE_SIZE, "%1d\n", auto_led);
+	return snprintf(buf, PAGE_SIZE, "%1d\n", sidewinder->led_state & 0x01);
 }
 
 static ssize_t ms_sidewinder_auto_store(struct device *dev,
@@ -249,13 +246,10 @@ static ssize_t ms_sidewinder_auto_store(struct device *dev,
 	if (sscanf(buf, "%1d", &auto_led) != 1)
 		return -EINVAL;
 
-	if (auto_led == 1) {
-		leds = sidewinder->led_state | 0x01;
-		ms_sidewinder_set_leds(hdev, leds);
-		return strnlen(buf, PAGE_SIZE);
-	}
-	else if (auto_led == 0) {
-		leds = sidewinder->led_state ^ 0x01;
+	if (auto_led == 0 || auto_led == 1) {
+		leds = sidewinder->led_state & ~(0x01);	/* Clear Auto LED */
+		if (auto_led == 1)
+			leds |= 0x01;
 		ms_sidewinder_set_leds(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else
