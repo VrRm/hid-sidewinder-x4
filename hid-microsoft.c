@@ -162,12 +162,14 @@ static ssize_t ms_sidewinder_profile_store(struct device *dev,
 	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
 	struct ms_data *sc = hid_get_drvdata(hdev);
 	struct ms_sidewinder_extra *sidewinder = sc->extra;
+	__u8 leds = sidewinder->led_state & ~(0x0e);
 
 	if (sscanf(buf, "%1u", &sidewinder->profile) != 1)
 		return -EINVAL;
 
 	if (sidewinder->profile >= 1 && sidewinder->profile <= 3) {
-		ms_sidewinder_set_leds(hdev, 1 << sidewinder->profile);
+		leds |= 1 << sidewinder->profile;
+		ms_sidewinder_set_leds(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else
 		return -EINVAL;
@@ -383,6 +385,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			usage->hid == (HID_UP_MSVENDOR | 0xfd15))) {
 		struct input_dev *input = field->hidinput->input;
 		struct ms_sidewinder_extra *sidewinder = sc->extra;
+		__u8 leds = sidewinder->led_state & ~(0x0e);	/* Clear Profile LEDs */
 
 		switch (usage->hid ^ HID_UP_MSVENDOR) {
 		case 0xfb01: /* S1 */
@@ -446,7 +449,9 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 					sidewinder->profile = 1;
 				} else
 					sidewinder->profile++;
-				ms_sidewinder_set_leds(hdev, 1 << sidewinder->profile);
+
+				leds |= 1 << sidewinder->profile;	/* Set Profile LEDs */
+				ms_sidewinder_set_leds(hdev, leds);
 			}
 			break;
 		default:
