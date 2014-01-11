@@ -109,6 +109,49 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
+static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
+		unsigned long **bit, int *max)
+{
+	set_bit(EV_REP, hi->input->evbit);
+	switch (usage->hid & HID_USAGE) {
+	case 0xfb01:
+		ms_map_key_clear(KEY_F13);
+		ms_map_key_clear(KEY_F19);
+		ms_map_key_clear(KEY_WWW);
+		break;
+	case 0xfb02:
+		ms_map_key_clear(KEY_F14);
+		ms_map_key_clear(KEY_F20);
+		ms_map_key_clear(KEY_MAIL);
+		break;
+	case 0xfb03:
+		ms_map_key_clear(KEY_F15);
+		ms_map_key_clear(KEY_F21);
+		ms_map_key_clear(KEY_PROG1);
+		break;
+	case 0xfb04:
+		ms_map_key_clear(KEY_F16);
+		ms_map_key_clear(KEY_F22);
+		ms_map_key_clear(KEY_PROG2);
+		break;
+	case 0xfb05:
+		ms_map_key_clear(KEY_F17);
+		ms_map_key_clear(KEY_F23);
+		ms_map_key_clear(KEY_PROG3);
+		break;
+	case 0xfb06:
+		ms_map_key_clear(KEY_F18);
+		ms_map_key_clear(KEY_F24);
+		ms_map_key_clear(KEY_PROG4);
+		break;
+	case 0xfd12: ms_map_key_clear(KEY_MACRO);	break;
+	case 0xfd15: ms_map_key_clear(KEY_UNKNOWN);	break;
+	default:
+		return 0;
+	}
+	return 1;
+}
+
 static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 {
 	struct ms_data *sc = hid_get_drvdata(hdev);
@@ -275,25 +318,6 @@ static const struct attribute_group ms_attr_group = {
 	.attrs = ms_attributes,
 };
 
-static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
-		unsigned long **bit, int *max)
-{
-	set_bit(EV_REP, hi->input->evbit);
-	switch (usage->hid & HID_USAGE) {
-	case 0xfb01: ms_map_key_clear(KEY_F13);	break;
-	case 0xfb02: ms_map_key_clear(KEY_F14);	break;
-	case 0xfb03: ms_map_key_clear(KEY_F15);	break;
-	case 0xfb04: ms_map_key_clear(KEY_F16);	break;
-	case 0xfb05: ms_map_key_clear(KEY_F17);	break;
-	case 0xfb06: ms_map_key_clear(KEY_F18);	break;
-	case 0xfd12: ms_map_key_clear(KEY_MACRO);	break;
-	case 0xfd15: ms_map_key_clear(KEY_UNKNOWN);	break;
-	default:
-		return 0;
-	}
-	return 1;
-}
-
 static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
@@ -386,14 +410,13 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			usage->hid == (HID_UP_MSVENDOR | 0xfd15))) {
 		struct input_dev *input = field->hidinput->input;
 		struct ms_sidewinder_extra *sidewinder = sc->extra;
-		__u8 leds = sidewinder->led_state & ~(0x0e);	/* Clear Profile LEDs */
 
 		switch (usage->hid ^ HID_UP_MSVENDOR) {
 		case 0xfb01: /* S1 */
 			switch (sidewinder->profile) {
 			case 1: input_event(input, usage->type, KEY_F13, value);	break;
 			case 2: input_event(input, usage->type, KEY_F19, value);	break;
-			case 3: input_event(input, usage->type, BTN_0, value);	break;
+			case 3: input_event(input, usage->type, KEY_WWW, value);	break;
 			default:
 				return 0;
 			}
@@ -402,7 +425,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			switch (sidewinder->profile) {
 			case 1: input_event(input, usage->type, KEY_F14, value);	break;
 			case 2: input_event(input, usage->type, KEY_F20, value);	break;
-			case 3: input_event(input, usage->type, BTN_1, value);	break;
+			case 3: input_event(input, usage->type, KEY_MAIL, value);	break;
 			default:
 				return 0;
 			}
@@ -411,7 +434,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			switch (sidewinder->profile) {
 			case 1: input_event(input, usage->type, KEY_F15, value);	break;
 			case 2: input_event(input, usage->type, KEY_F21, value);	break;
-			case 3: input_event(input, usage->type, BTN_2, value);	break;
+			case 3: input_event(input, usage->type, KEY_PROG1, value);	break;
 			default:
 				return 0;
 			}
@@ -420,7 +443,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			switch (sidewinder->profile) {
 			case 1: input_event(input, usage->type, KEY_F16, value);	break;
 			case 2: input_event(input, usage->type, KEY_F22, value);	break;
-			case 3: input_event(input, usage->type, BTN_3, value);	break;
+			case 3: input_event(input, usage->type, KEY_PROG2, value);	break;
 			default:
 				return 0;
 			}
@@ -429,7 +452,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			switch (sidewinder->profile) {
 			case 1: input_event(input, usage->type, KEY_F17, value);	break;
 			case 2: input_event(input, usage->type, KEY_F23, value);	break;
-			case 3: input_event(input, usage->type, BTN_4, value);	break;
+			case 3: input_event(input, usage->type, KEY_PROG3, value);	break;
 			default:
 				return 0;
 			}
@@ -438,7 +461,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 			switch (sidewinder->profile) {
 			case 1: input_event(input, usage->type, KEY_F18, value);	break;
 			case 2: input_event(input, usage->type, KEY_F24, value);	break;
-			case 3: input_event(input, usage->type, BTN_5, value);	break;
+			case 3: input_event(input, usage->type, KEY_PROG4, value);	break;
 			default:
 				return 0;
 			}
@@ -446,6 +469,8 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		case 0xfd12: input_event(input, usage->type, KEY_MACRO, value);	break;
 		case 0xfd15:
 			if (value) {
+				__u8 leds = sidewinder->led_state & ~(0x0e);	/* Clear Profile LEDs */
+
 				if (sidewinder->profile < 1 || sidewinder->profile >= 3) {
 					sidewinder->profile = 1;
 				} else
