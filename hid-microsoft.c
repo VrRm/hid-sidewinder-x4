@@ -493,8 +493,11 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		}
 		sc->extra = sidewinder;
 
-		if (sysfs_create_group(&hdev->dev.kobj, &ms_attr_group)) {
-			hid_warn(hdev, "Could not create sysfs group\n");
+		/* Create sysfs files for the consumer control device only */
+		if (hdev->type == 2) {
+			if (sysfs_create_group(&hdev->dev.kobj, &ms_attr_group)) {
+				hid_warn(hdev, "Could not create sysfs group\n");
+			}
 		}
 	}
 
