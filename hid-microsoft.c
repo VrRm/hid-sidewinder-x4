@@ -41,7 +41,7 @@ struct ms_data {
 
 struct ms_sidewinder_extra {
 	unsigned int profile;
-	__u8 led_state;
+	__u8 status;
 };
 
 static __u8 *ms_report_fixup(struct hid_device *hdev, __u8 *rdesc,
@@ -114,43 +114,48 @@ static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
 {
 	set_bit(EV_REP, hi->input->evbit);
 	switch (usage->hid & HID_USAGE) {
-	case 0xfb01:
-		ms_map_key_clear(KEY_F13);
-		ms_map_key_clear(KEY_F19);
-		ms_map_key_clear(KEY_WWW);
-		break;
-	case 0xfb02:
-		ms_map_key_clear(KEY_F14);
-		ms_map_key_clear(KEY_F20);
-		ms_map_key_clear(KEY_MAIL);
-		break;
-	case 0xfb03:
-		ms_map_key_clear(KEY_F15);
-		ms_map_key_clear(KEY_F21);
-		ms_map_key_clear(KEY_PROG1);
-		break;
-	case 0xfb04:
-		ms_map_key_clear(KEY_F16);
-		ms_map_key_clear(KEY_F22);
-		ms_map_key_clear(KEY_PROG2);
-		break;
-	case 0xfb05:
-		ms_map_key_clear(KEY_F17);
-		ms_map_key_clear(KEY_F23);
-		ms_map_key_clear(KEY_PROG3);
-		break;
-	case 0xfb06:
-		ms_map_key_clear(KEY_F18);
-		ms_map_key_clear(KEY_F24);
-		ms_map_key_clear(KEY_PROG4);
-		break;
-	case 0xfd12: ms_map_key_clear(KEY_MACRO);	break;
-	case 0xfd15: ms_map_key_clear(KEY_UNKNOWN);	break;
+	/* S1 - S6 macro keys are shared between Sidewinder X4 and X6 */
+	case 0xfb01: ms_map_key_clear(KEY_F13);	break;	/* S1 */
+	case 0xfb02: ms_map_key_clear(KEY_F14);	break;
+	case 0xfb03: ms_map_key_clear(KEY_F15);	break;
+	case 0xfb04: ms_map_key_clear(KEY_F16);	break;
+	case 0xfb05: ms_map_key_clear(KEY_F17);	break;
+	case 0xfb06: ms_map_key_clear(KEY_F18);	break;
+	/* S7 - S30 macro keys are only present on the Sidewinder X6 */
+	case 0xfb07: ms_map_key_clear(KEY_F19);	break;	/* S7 */
+	case 0xfb08: ms_map_key_clear(KEY_F20);	break;
+	case 0xfb09: ms_map_key_clear(KEY_F21);	break;
+	case 0xfb0a: ms_map_key_clear(KEY_F22);	break;
+	case 0xfb0b: ms_map_key_clear(KEY_F23);	break;
+	case 0xfb0c: ms_map_key_clear(KEY_F24);	break;
+	case 0xfb0d: ms_map_key_clear(KEY_WWW);	break;	/* S13 */
+	case 0xfb0e: ms_map_key_clear(KEY_MAIL);	break;
+	case 0xfb0f: ms_map_key_clear(KEY_PROG1);	break;
+	case 0xfb10: ms_map_key_clear(KEY_PROG2);	break;
+	case 0xfb11: ms_map_key_clear(KEY_PROG3);	break;
+	case 0xfb12: ms_map_key_clear(KEY_PROG4);	break;
+	case 0xfb13: ms_map_key_clear(BTN_0);	break; /* S18 */
+	case 0xfb14: ms_map_key_clear(BTN_1);	break;
+	case 0xfb15: ms_map_key_clear(BTN_2);	break;
+	case 0xfb16: ms_map_key_clear(BTN_3);	break;
+	case 0xfb17: ms_map_key_clear(BTN_4);	break;
+	case 0xfb18: ms_map_key_clear(BTN_5);	break;
+	case 0xfb19: ms_map_key_clear(BTN_A);	break; /* S24 */
+	case 0xfb1a: ms_map_key_clear(BTN_B);	break;
+	case 0xfb1b: ms_map_key_clear(BTN_C);	break;
+	case 0xfb1c: ms_map_key_clear(BTN_X);	break;
+	case 0xfb1d: ms_map_key_clear(BTN_Y);	break;
+	case 0xfb1e: ms_map_key_clear(BTN_Z);	break;
+	case 0xfd11: ms_map_key_clear(KEY_UNKNOWN);	break;	/* X6 only: Macro Pad toggle key*/
+	case 0xfd12: ms_map_key_clear(KEY_MACRO);	break;	/* Macro Record key */
+	case 0xfd15: ms_map_key_clear(KEY_UNKNOWN);	break;	/* Profile switch key */
 	default:
 		return 0;
 	}
 	return 1;
 }
+
+#undef ms_map_key_clear
 
 static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 {
@@ -162,33 +167,31 @@ static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 	/* LEDs 1 - 3 should not be set simultaneously, however
 	 * they can be set in any combination with Auto or Record LEDs.
 	 */
-	report->field[0]->value[0] = 0x00;
-	report->field[0]->value[1] = (leds & 0x01) ? 0x01 : 0x00;	/* LED Auto */
-	report->field[0]->value[2] = (leds & 0x02) ? 0x01 : 0x00;	/* LED 1 */
-	report->field[0]->value[3] = (leds & 0x04) ? 0x01 : 0x00;	/* LED 2 */
-	report->field[0]->value[4] = (leds & 0x08) ? 0x01 : 0x00;	/* LED 3 */
+	report->field[0]->value[0] = (leds & 0x01) ? 0x01 : 0x00;	/* X6 only: Macro Pad toggle */
+	report->field[0]->value[1] = (leds & 0x02) ? 0x01 : 0x00;	/* LED Auto */
+	report->field[0]->value[2] = (leds & 0x04) ? 0x01 : 0x00;	/* LED 1 */
+	report->field[0]->value[3] = (leds & 0x08) ? 0x01 : 0x00;	/* LED 2 */
+	report->field[0]->value[4] = (leds & 0x10) ? 0x01 : 0x00;	/* LED 3 */
 
-	if (leds & 0x80)
+	if (leds & 0x40)
 		report->field[1]->value[0] = 0x03;	/* Record LED Solid */
-	else if (leds & 0x40)
-		report->field[1]->value[0] = 0x02;	/* Record LED Blink */
 	else if (leds & 0x20)
-		report->field[1]->value[0] = 0x01;	/* Record LED Breath */
+		report->field[1]->value[0] = 0x02;	/* Record LED Blink */
 	else
 		report->field[1]->value[0] = 0x00;
 
-	if (sidewinder->led_state != leds) {
+	if (sidewinder->status != leds) {
 		hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
-		sidewinder->led_state = leds;
+		sidewinder->status = leds;
 	}
 
 	return 0;
 }
 
 /* Sidewinder sysfs drivers
- * @ms_sidewinder_profile: show and set profile count and LED status
- * @ms_sidewinder_auto_led: show and set LED Auto
- * @ms_sidewinder_record_led: show and set Record LED
+ * @profile: show and set profile count and LED status
+ * @auto_led: show and set LED Auto
+ * @record_led: show and set Record LED
  */
 static ssize_t ms_sidewinder_profile_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -206,13 +209,13 @@ static ssize_t ms_sidewinder_profile_store(struct device *dev,
 	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
 	struct ms_data *sc = hid_get_drvdata(hdev);
 	struct ms_sidewinder_extra *sidewinder = sc->extra;
-	__u8 leds = sidewinder->led_state & ~(0x0e);
+	__u8 leds = sidewinder->status & ~(0x1c);	/* Clear Profile LEDs */
 
 	if (sscanf(buf, "%1u", &sidewinder->profile) != 1)
 		return -EINVAL;
 
 	if (sidewinder->profile >= 1 && sidewinder->profile <= 3) {
-		leds |= 1 << sidewinder->profile;
+		leds |= 0x02 << sidewinder->profile;
 		ms_sidewinder_set_leds(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else
@@ -220,7 +223,7 @@ static ssize_t ms_sidewinder_profile_store(struct device *dev,
 }
 
 static struct device_attribute dev_attr_ms_sidewinder_profile =
-	__ATTR(ms_sidewinder_profile, S_IWUSR | S_IRUGO,
+	__ATTR(profile, S_IWUSR | S_IRUGO,
 		ms_sidewinder_profile_show,
 		ms_sidewinder_profile_store);
 
@@ -232,11 +235,9 @@ static ssize_t ms_sidewinder_record_show(struct device *dev,
 	struct ms_sidewinder_extra *sidewinder = sc->extra;
 	int record_led;
 
-	if (sidewinder->led_state & 0x80)
-		record_led = 3;
-	else if (sidewinder->led_state & 0x40)
+	if (sidewinder->status & 0x40)
 		record_led = 2;
-	else if (sidewinder->led_state & 0x20)
+	else if (sidewinder->status & 0x20)
 		record_led = 1;
 	else
 		record_led = 0;
@@ -256,8 +257,12 @@ static ssize_t ms_sidewinder_record_store(struct device *dev,
 	if (sscanf(buf, "%1d", &record_led) != 1)
 		return -EINVAL;
 
-	if (record_led >= 0 && record_led <= 3) {
-		leds = sidewinder->led_state & ~(0xf0);	/* Clear Record LED */
+	if (record_led == 0) {
+		leds = sidewinder->status & ~(0xe0);	/* Clear Record LED */
+		ms_sidewinder_set_leds(hdev, leds);
+		return strnlen(buf, PAGE_SIZE);
+	} else if (record_led == 1 || record_led == 2) {
+		leds = sidewinder->status & ~(0xe0);	/* Clear Record LED */
 		leds |= 0x10 << record_led;
 		ms_sidewinder_set_leds(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
@@ -266,7 +271,7 @@ static ssize_t ms_sidewinder_record_store(struct device *dev,
 }
 
 static struct device_attribute dev_attr_ms_sidewinder_record =
-	__ATTR(ms_sidewinder_record, S_IWUSR | S_IRUGO,
+	__ATTR(record_led, S_IWUSR | S_IRUGO,
 		ms_sidewinder_record_show,
 		ms_sidewinder_record_store);
 
@@ -276,8 +281,14 @@ static ssize_t ms_sidewinder_auto_show(struct device *dev,
 	struct hid_device *hdev = container_of(dev, struct hid_device, dev);
 	struct ms_data *sc = hid_get_drvdata(hdev);
 	struct ms_sidewinder_extra *sidewinder = sc->extra;
+	int auto_led;
 
-	return snprintf(buf, PAGE_SIZE, "%1d\n", sidewinder->led_state & 0x01);
+	if (sidewinder->status & 0x02)	/* Check if Auto LED bit is set */
+		auto_led = 1;
+	else
+		auto_led = 0;
+
+	return snprintf(buf, PAGE_SIZE, "%1d\n", auto_led);
 }
 
 static ssize_t ms_sidewinder_auto_store(struct device *dev,
@@ -293,9 +304,9 @@ static ssize_t ms_sidewinder_auto_store(struct device *dev,
 		return -EINVAL;
 
 	if (auto_led == 0 || auto_led == 1) {
-		leds = sidewinder->led_state & ~(0x01);	/* Clear Auto LED */
+		leds = sidewinder->status & ~(0x02);	/* Clear Auto LED */
 		if (auto_led == 1)
-			leds |= 0x01;
+			leds |= 0x02;
 		ms_sidewinder_set_leds(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else
@@ -303,7 +314,7 @@ static ssize_t ms_sidewinder_auto_store(struct device *dev,
 }
 
 static struct device_attribute dev_attr_ms_sidewinder_auto =
-	__ATTR(ms_sidewinder_auto, S_IWUSR | S_IRUGO,
+	__ATTR(auto_led, S_IWUSR | S_IRUGO,
 		ms_sidewinder_auto_show,
 		ms_sidewinder_auto_store);
 
@@ -364,7 +375,7 @@ static void ms_feature_mapping(struct hid_device *hdev,
 		struct ms_sidewinder_extra *sidewinder = sc->extra;
 
 		sidewinder->profile = 1;
-		ms_sidewinder_set_leds(hdev, 1 << sidewinder->profile);
+		ms_sidewinder_set_leds(hdev, 0x02 << sidewinder->profile);
 	}
 }
 
@@ -398,20 +409,23 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		return 1;
 	}
 
-	/* Sidewinder special button handling & profile switching */
+	/* Sidewinder special button handling & profile switching
+	 * 
+	 * Send out different keycodes for S1 - S6 keys in combination with
+	 * any of the 3 profiles. This is shared between Sidewinder X4 and
+	 * X6. X6 only: setting up different keycodes for S1 - S30 in
+	 * profiles 1 - 3 seems unnecessary, but possible. That would
+	 * result in 90 extra keys.
+	 */
 	if (sc->quirks & MS_SIDEWINDER &&
 			(usage->hid == (HID_UP_MSVENDOR | 0xfb01) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfb02) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfb03) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfb04) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfb05) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfb06) ||
+			usage->hid == (HID_UP_MSVENDOR | 0xfd11) ||
 			usage->hid == (HID_UP_MSVENDOR | 0xfd12) ||
 			usage->hid == (HID_UP_MSVENDOR | 0xfd15))) {
 		struct input_dev *input = field->hidinput->input;
 		struct ms_sidewinder_extra *sidewinder = sc->extra;
 
-		switch (usage->hid ^ HID_UP_MSVENDOR) {
+		switch (usage->hid & HID_USAGE) {
 		case 0xfb01: /* S1 */
 			switch (sidewinder->profile) {
 			case 1: input_event(input, usage->type, KEY_F13, value);	break;
@@ -466,17 +480,24 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 				return 0;
 			}
 			break;
+		case 0xfd11:
+			if (value) {
+				__u8 numpad = sidewinder->status ^ (0x01);	/* Toggle Macro Pad */
+
+				ms_sidewinder_set_leds(hdev, numpad);
+			}
+			break;
 		case 0xfd12: input_event(input, usage->type, KEY_MACRO, value);	break;
 		case 0xfd15:
 			if (value) {
-				__u8 leds = sidewinder->led_state & ~(0x0e);	/* Clear Profile LEDs */
+				__u8 leds = sidewinder->status & ~(0x1c);	/* Clear Profile LEDs */
 
 				if (sidewinder->profile < 1 || sidewinder->profile >= 3) {
 					sidewinder->profile = 1;
 				} else
 					sidewinder->profile++;
 
-				leds |= 1 << sidewinder->profile;	/* Set Profile LEDs */
+				leds |= 0x02 << sidewinder->profile;	/* Set Profile LEDs */
 				ms_sidewinder_set_leds(hdev, leds);
 			}
 			break;
@@ -518,7 +539,7 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		}
 		sc->extra = sidewinder;
 
-		/* Create sysfs files for the consumer control device only */
+		/* Create sysfs files for the Consumer Control Device only */
 		if (hdev->type == 2) {
 			if (sysfs_create_group(&hdev->dev.kobj, &ms_attr_group)) {
 				hid_warn(hdev, "Could not create sysfs group\n");
