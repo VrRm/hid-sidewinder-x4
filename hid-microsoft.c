@@ -160,7 +160,7 @@ static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
 			hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[7];
 
 	/* LEDs 1 - 3 should not be set simultaneously, however
-	 * they can be set in any combination with Record LEDs
+	 * they can be set in any combination with Auto or Record LEDs.
 	 */
 	report->field[0]->value[0] = 0x00;
 	report->field[0]->value[1] = (leds & 0x01) ? 0x01 : 0x00;	/* LED Auto */
@@ -555,6 +555,8 @@ static void ms_remove(struct hid_device *hdev)
 static const struct hid_device_id ms_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_SIDEWINDER_GV),
 		.driver_data = MS_HIDINPUT },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_SIDEWINDER_X6),
+		.driver_data = MS_SIDEWINDER },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_SIDEWINDER_X4),
 		.driver_data = MS_SIDEWINDER },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_NE4K),
