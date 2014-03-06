@@ -112,40 +112,162 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
-	set_bit(EV_REP, hi->input->evbit);
+	struct input_dev *input = hi->input;
+
+	set_bit(EV_REP, input->evbit);
 	switch (usage->hid & HID_USAGE) {
 	/* S1 - S6 macro keys are shared between Sidewinder X4 and X6 */
-	case 0xfb01: ms_map_key_clear(KEY_F13);	break;	/* S1 */
-	case 0xfb02: ms_map_key_clear(KEY_F14);	break;
-	case 0xfb03: ms_map_key_clear(KEY_F15);	break;
-	case 0xfb04: ms_map_key_clear(KEY_F16);	break;
-	case 0xfb05: ms_map_key_clear(KEY_F17);	break;
-	case 0xfb06: ms_map_key_clear(KEY_F18);	break;
+	case 0xfb01:	/* S1 */
+		ms_map_key_clear(KEY_F13);
+		set_bit(KEY_F19, input->keybit);
+		set_bit(KEY_WWW, input->keybit);
+		break;
+	case 0xfb02:	/* S2 */
+		ms_map_key_clear(KEY_F14);
+		set_bit(KEY_F20, input->keybit);
+		set_bit(KEY_MAIL, input->keybit);
+		break;
+	case 0xfb03:	/* S3 */
+		ms_map_key_clear(KEY_F15);
+		set_bit(KEY_F21, input->keybit);
+		set_bit(KEY_PROG1, input->keybit);
+		break;
+	case 0xfb04:	/* S4 */
+		ms_map_key_clear(KEY_F16);
+		set_bit(KEY_F22, input->keybit);
+		set_bit(KEY_PROG2, input->keybit);
+		break;
+	case 0xfb05:	/* S5 */
+		ms_map_key_clear(KEY_F17);
+		set_bit(KEY_F23, input->keybit);
+		set_bit(KEY_PROG3, input->keybit);
+		break;
+	case 0xfb06:	/* S6 */
+		ms_map_key_clear(KEY_F18);
+		set_bit(KEY_F24, input->keybit);
+		set_bit(KEY_PROG4, input->keybit);
+		break;
 	/* S7 - S30 macro keys are only present on the Sidewinder X6 */
-	case 0xfb07: ms_map_key_clear(KEY_F19);	break;	/* S7 */
-	case 0xfb08: ms_map_key_clear(KEY_F20);	break;
-	case 0xfb09: ms_map_key_clear(KEY_F21);	break;
-	case 0xfb0a: ms_map_key_clear(KEY_F22);	break;
-	case 0xfb0b: ms_map_key_clear(KEY_F23);	break;
-	case 0xfb0c: ms_map_key_clear(KEY_F24);	break;
-	case 0xfb0d: ms_map_key_clear(KEY_WWW);	break;	/* S13 */
-	case 0xfb0e: ms_map_key_clear(KEY_MAIL);	break;
-	case 0xfb0f: ms_map_key_clear(KEY_PROG1);	break;
-	case 0xfb10: ms_map_key_clear(KEY_PROG2);	break;
-	case 0xfb11: ms_map_key_clear(KEY_PROG3);	break;
-	case 0xfb12: ms_map_key_clear(KEY_PROG4);	break;
-	case 0xfb13: ms_map_key_clear(BTN_0);	break; /* S18 */
-	case 0xfb14: ms_map_key_clear(BTN_1);	break;
-	case 0xfb15: ms_map_key_clear(BTN_2);	break;
-	case 0xfb16: ms_map_key_clear(BTN_3);	break;
-	case 0xfb17: ms_map_key_clear(BTN_4);	break;
-	case 0xfb18: ms_map_key_clear(BTN_5);	break;
-	case 0xfb19: ms_map_key_clear(BTN_A);	break; /* S24 */
-	case 0xfb1a: ms_map_key_clear(BTN_B);	break;
-	case 0xfb1b: ms_map_key_clear(BTN_C);	break;
-	case 0xfb1c: ms_map_key_clear(BTN_X);	break;
-	case 0xfb1d: ms_map_key_clear(BTN_Y);	break;
-	case 0xfb1e: ms_map_key_clear(BTN_Z);	break;
+	case 0xfb07:	/* S7 */
+		ms_map_key_clear(BTN_0);
+		set_bit(BTN_BASE, input->keybit);
+		set_bit(BTN_A, input->keybit);
+		break;
+	case 0xfb08:	/* S8 */
+		ms_map_key_clear(BTN_1);
+		set_bit(BTN_BASE2, input->keybit);
+		set_bit(BTN_B, input->keybit);
+		break;
+	case 0xfb09:	/* S9 */
+		ms_map_key_clear(BTN_2);
+		set_bit(BTN_BASE3, input->keybit);
+		set_bit(BTN_C, input->keybit);
+		break;
+	case 0xfb0a:	/* S10 */
+		ms_map_key_clear(BTN_3);
+		set_bit(BTN_BASE4, input->keybit);
+		set_bit(BTN_X, input->keybit);
+		break;
+	case 0xfb0b:	/* S11 */
+		ms_map_key_clear(BTN_4);
+		set_bit(BTN_BASE5, input->keybit);
+		set_bit(BTN_Y, input->keybit);
+		break;
+	case 0xfb0c:	/* S12 */
+		ms_map_key_clear(BTN_5);
+		set_bit(BTN_BASE6, input->keybit);
+		set_bit(BTN_Z, input->keybit);
+		break;
+	case 0xfb0d:	/* S13 */
+		ms_map_key_clear(KEY_F13);
+		set_bit(KEY_F19, input->keybit);
+		set_bit(KEY_WWW, input->keybit);
+		break;
+	case 0xfb0e:	/* S14 */
+		ms_map_key_clear(KEY_F14);
+		set_bit(KEY_F20, input->keybit);
+		set_bit(KEY_MAIL, input->keybit);
+		break;
+	case 0xfb0f:	/* S15 */
+		ms_map_key_clear(KEY_F15);
+		set_bit(KEY_F21, input->keybit);
+		set_bit(KEY_PROG1, input->keybit);
+		break;
+	case 0xfb10:	/* S16 */
+		ms_map_key_clear(KEY_F16);
+		set_bit(KEY_F22, input->keybit);
+		set_bit(KEY_PROG2, input->keybit);
+		break;
+	case 0xfb11:	/* S17 */
+		ms_map_key_clear(KEY_F17);
+		set_bit(KEY_F23, input->keybit);
+		set_bit(KEY_PROG3, input->keybit);
+		break;
+	case 0xfb12:	/* S18 */
+		ms_map_key_clear(KEY_F18);
+		set_bit(KEY_F24, input->keybit);
+		set_bit(KEY_PROG4, input->keybit);
+		break;
+	case 0xfb13:	/* S19 */
+		ms_map_key_clear(KEY_F13);
+		set_bit(KEY_F19, input->keybit);
+		set_bit(KEY_WWW, input->keybit);
+		break;
+	case 0xfb14:	/* S20 */
+		ms_map_key_clear(KEY_F14);
+		set_bit(KEY_F20, input->keybit);
+		set_bit(KEY_MAIL, input->keybit);
+		break;
+	case 0xfb15:	/* S21 */
+		ms_map_key_clear(KEY_F15);
+		set_bit(KEY_F21, input->keybit);
+		set_bit(KEY_PROG1, input->keybit);
+		break;
+	case 0xfb16:	/* S22 */
+		ms_map_key_clear(KEY_F16);
+		set_bit(KEY_F22, input->keybit);
+		set_bit(KEY_PROG2, input->keybit);
+		break;
+	case 0xfb17:	/* S23 */
+		ms_map_key_clear(KEY_F17);
+		set_bit(KEY_F23, input->keybit);
+		set_bit(KEY_PROG3, input->keybit);
+		break;
+	case 0xfb18:	/* S24 */
+		ms_map_key_clear(KEY_F18);
+		set_bit(KEY_F24, input->keybit);
+		set_bit(KEY_PROG4, input->keybit);
+		break;
+	case 0xfb19:	/* S25 */
+		ms_map_key_clear(KEY_F13);
+		set_bit(KEY_F19, input->keybit);
+		set_bit(KEY_WWW, input->keybit);
+		break;
+	case 0xfb1a:	/* S26 */
+		ms_map_key_clear(KEY_F14);
+		set_bit(KEY_F20, input->keybit);
+		set_bit(KEY_MAIL, input->keybit);
+		break;
+	case 0xfb1b:	/* S27 */
+		ms_map_key_clear(KEY_F15);
+		set_bit(KEY_F21, input->keybit);
+		set_bit(KEY_PROG1, input->keybit);
+		break;
+	case 0xfb1c:	/* S28 */
+		ms_map_key_clear(KEY_F16);
+		set_bit(KEY_F22, input->keybit);
+		set_bit(KEY_PROG2, input->keybit);
+		break;
+	case 0xfb1d:	/* S29 */
+		ms_map_key_clear(KEY_F17);
+		set_bit(KEY_F23, input->keybit);
+		set_bit(KEY_PROG3, input->keybit);
+		break;
+	case 0xfb1e:	/* S30 */
+		ms_map_key_clear(KEY_F18);
+		set_bit(KEY_F24, input->keybit);
+		set_bit(KEY_PROG4, input->keybit);
+		break;
 	case 0xfd11: ms_map_key_clear(KEY_UNKNOWN);	break;	/* X6 only: Macro Pad toggle key*/
 	case 0xfd12: ms_map_key_clear(KEY_MACRO);	break;	/* Macro Record key */
 	case 0xfd15: ms_map_key_clear(KEY_UNKNOWN);	break;	/* Profile switch key */
@@ -154,41 +276,42 @@ static int ms_sidewinder_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
 	}
 	return 1;
 }
-
 #undef ms_map_key_clear
 
-static int ms_sidewinder_set_leds(struct hid_device *hdev, __u8 leds)
+static int ms_sidewinder_control(struct hid_device *hdev, __u8 setup)
 {
 	struct ms_data *sc = hid_get_drvdata(hdev);
 	struct ms_sidewinder_extra *sidewinder = sc->extra;
 	struct hid_report *report =
 			hdev->report_enum[HID_FEATURE_REPORT].report_id_hash[7];
 
-	/* LEDs 1 - 3 should not be set simultaneously, however
+	/*
+	 * LEDs 1 - 3 should not be set simultaneously, however
 	 * they can be set in any combination with Auto or Record LEDs.
 	 */
-	report->field[0]->value[0] = (leds & 0x01) ? 0x01 : 0x00;	/* X6 only: Macro Pad toggle */
-	report->field[0]->value[1] = (leds & 0x02) ? 0x01 : 0x00;	/* LED Auto */
-	report->field[0]->value[2] = (leds & 0x04) ? 0x01 : 0x00;	/* LED 1 */
-	report->field[0]->value[3] = (leds & 0x08) ? 0x01 : 0x00;	/* LED 2 */
-	report->field[0]->value[4] = (leds & 0x10) ? 0x01 : 0x00;	/* LED 3 */
+	report->field[0]->value[0] = (setup & 0x01) ? 0x01 : 0x00;	/* X6 only: Macro Pad toggle */
+	report->field[0]->value[1] = (setup & 0x02) ? 0x01 : 0x00;	/* LED Auto */
+	report->field[0]->value[2] = (setup & 0x04) ? 0x01 : 0x00;	/* LED 1 */
+	report->field[0]->value[3] = (setup & 0x08) ? 0x01 : 0x00;	/* LED 2 */
+	report->field[0]->value[4] = (setup & 0x10) ? 0x01 : 0x00;	/* LED 3 */
 
-	if (leds & 0x40)
+	if (setup & 0x40)
 		report->field[1]->value[0] = 0x03;	/* Record LED Solid */
-	else if (leds & 0x20)
+	else if (setup & 0x20)
 		report->field[1]->value[0] = 0x02;	/* Record LED Blink */
 	else
 		report->field[1]->value[0] = 0x00;
 
-	if (sidewinder->status != leds) {
+	if (sidewinder->status != setup) {
 		hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
-		sidewinder->status = leds;
+		sidewinder->status = setup;
 	}
 
 	return 0;
 }
 
-/* Sidewinder sysfs drivers
+/*
+ * Sidewinder sysfs
  * @profile: show and set profile count and LED status
  * @auto_led: show and set LED Auto
  * @record_led: show and set Record LED
@@ -216,7 +339,7 @@ static ssize_t ms_sidewinder_profile_store(struct device *dev,
 
 	if (sidewinder->profile >= 1 && sidewinder->profile <= 3) {
 		leds |= 0x02 << sidewinder->profile;
-		ms_sidewinder_set_leds(hdev, leds);
+		ms_sidewinder_control(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else
 		return -EINVAL;
@@ -259,12 +382,12 @@ static ssize_t ms_sidewinder_record_store(struct device *dev,
 
 	if (record_led == 0) {
 		leds = sidewinder->status & ~(0xe0);	/* Clear Record LED */
-		ms_sidewinder_set_leds(hdev, leds);
+		ms_sidewinder_control(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else if (record_led == 1 || record_led == 2) {
 		leds = sidewinder->status & ~(0xe0);	/* Clear Record LED */
 		leds |= 0x10 << record_led;
-		ms_sidewinder_set_leds(hdev, leds);
+		ms_sidewinder_control(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else
 		return -EINVAL;
@@ -307,7 +430,7 @@ static ssize_t ms_sidewinder_auto_store(struct device *dev,
 		leds = sidewinder->status & ~(0x02);	/* Clear Auto LED */
 		if (auto_led == 1)
 			leds |= 0x02;
-		ms_sidewinder_set_leds(hdev, leds);
+		ms_sidewinder_control(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else
 		return -EINVAL;
@@ -375,10 +498,11 @@ static void ms_feature_mapping(struct hid_device *hdev,
 		struct ms_sidewinder_extra *sidewinder = sc->extra;
 
 		sidewinder->profile = 1;
-		ms_sidewinder_set_leds(hdev, 0x02 << sidewinder->profile);
+		ms_sidewinder_control(hdev, 0x02 << sidewinder->profile);
 	}
 }
 
+#define ms_input_event(c)	input_event(input, usage->type, (c), value)
 static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		struct hid_usage *usage, __s32 value)
 {
@@ -409,100 +533,249 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 		return 1;
 	}
 
-	/* Sidewinder special button handling & profile switching
-	 * 
+	/*
+	 * Sidewinder special button handling & profile switching
+	 *
 	 * Send out different keycodes for S1 - S6 keys in combination with
 	 * any of the 3 profiles. This is shared between Sidewinder X4 and
 	 * X6. X6 only: setting up different keycodes for S1 - S30 in
 	 * profiles 1 - 3 seems unnecessary, but possible. That would
 	 * result in 90 extra keys.
 	 */
-	if (sc->quirks & MS_SIDEWINDER &&
-			(usage->hid == (HID_UP_MSVENDOR | 0xfb01) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfd11) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfd12) ||
-			usage->hid == (HID_UP_MSVENDOR | 0xfd15))) {
+	if (sc->quirks & MS_SIDEWINDER) {
 		struct input_dev *input = field->hidinput->input;
 		struct ms_sidewinder_extra *sidewinder = sc->extra;
 
 		switch (usage->hid & HID_USAGE) {
 		case 0xfb01: /* S1 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_F13, value);	break;
-			case 2: input_event(input, usage->type, KEY_F19, value);	break;
-			case 3: input_event(input, usage->type, KEY_WWW, value);	break;
-			default:
-				return 0;
+			case 1: ms_input_event(KEY_F13);	break;
+			case 2: ms_input_event(KEY_F19);	break;
+			case 3: ms_input_event(KEY_WWW);	break;
 			}
 			break;
 		case 0xfb02: /* S2 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_F14, value);	break;
-			case 2: input_event(input, usage->type, KEY_F20, value);	break;
-			case 3: input_event(input, usage->type, KEY_MAIL, value);	break;
-			default:
-				return 0;
+			case 1: ms_input_event(KEY_F14);	break;
+			case 2: ms_input_event(KEY_F20);	break;
+			case 3: ms_input_event(KEY_MAIL);	break;
 			}
 			break;
 		case 0xfb03: /* S3 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_F15, value);	break;
-			case 2: input_event(input, usage->type, KEY_F21, value);	break;
-			case 3: input_event(input, usage->type, KEY_PROG1, value);	break;
-			default:
-				return 0;
+			case 1: ms_input_event(KEY_F15);	break;
+			case 2: ms_input_event(KEY_F21);	break;
+			case 3: ms_input_event(KEY_PROG1);	break;
 			}
 			break;
 		case 0xfb04: /* S4 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_F16, value);	break;
-			case 2: input_event(input, usage->type, KEY_F22, value);	break;
-			case 3: input_event(input, usage->type, KEY_PROG2, value);	break;
-			default:
-				return 0;
+			case 1: ms_input_event(KEY_F16);	break;
+			case 2: ms_input_event(KEY_F22);	break;
+			case 3: ms_input_event(KEY_PROG2);	break;
 			}
 			break;
 		case 0xfb05: /* S5 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_F17, value);	break;
-			case 2: input_event(input, usage->type, KEY_F23, value);	break;
-			case 3: input_event(input, usage->type, KEY_PROG3, value);	break;
-			default:
-				return 0;
+			case 1: ms_input_event(KEY_F17);	break;
+			case 2: ms_input_event(KEY_F23);	break;
+			case 3: ms_input_event(KEY_PROG3);	break;
 			}
 			break;
 		case 0xfb06: /* S6 */
 			switch (sidewinder->profile) {
-			case 1: input_event(input, usage->type, KEY_F18, value);	break;
-			case 2: input_event(input, usage->type, KEY_F24, value);	break;
-			case 3: input_event(input, usage->type, KEY_PROG4, value);	break;
-			default:
-				return 0;
+			case 1: ms_input_event(KEY_F18);	break;
+			case 2: ms_input_event(KEY_F24);	break;
+			case 3: ms_input_event(KEY_PROG4);	break;
+			}
+			break;
+		case 0xfb07: /* S7 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(BTN_0);	break;
+			case 2: ms_input_event(KEY_F19);	break;
+			case 3: ms_input_event(KEY_WWW);	break;
+			}
+			break;
+		case 0xfb08: /* S8 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F14);	break;
+			case 2: ms_input_event(KEY_F20);	break;
+			case 3: ms_input_event(KEY_MAIL);	break;
+			}
+			break;
+		case 0xfb09: /* S9 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F15);	break;
+			case 2: ms_input_event(KEY_F21);	break;
+			case 3: ms_input_event(KEY_PROG1);	break;
+			}
+			break;
+		case 0xfb0a: /* S10 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F16);	break;
+			case 2: ms_input_event(KEY_F22);	break;
+			case 3: ms_input_event(KEY_PROG2);	break;
+			}
+			break;
+		case 0xfb0b: /* S11 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F17);	break;
+			case 2: ms_input_event(KEY_F23);	break;
+			case 3: ms_input_event(KEY_PROG3);	break;
+			}
+			break;
+		case 0xfb0c: /* S12 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F18);	break;
+			case 2: ms_input_event(KEY_F24);	break;
+			case 3: ms_input_event(KEY_PROG4);	break;
+			}
+			break;
+		case 0xfb0d: /* S13 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F13);	break;
+			case 2: ms_input_event(KEY_F19);	break;
+			case 3: ms_input_event(KEY_WWW);	break;
+			}
+			break;
+		case 0xfb0e: /* S14 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F14);	break;
+			case 2: ms_input_event(KEY_F20);	break;
+			case 3: ms_input_event(KEY_MAIL);	break;
+			}
+			break;
+		case 0xfb0f: /* S15 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F15);	break;
+			case 2: ms_input_event(KEY_F21);	break;
+			case 3: ms_input_event(KEY_PROG1);	break;
+			}
+			break;
+		case 0xfb10: /* S16 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F16);	break;
+			case 2: ms_input_event(KEY_F22);	break;
+			case 3: ms_input_event(KEY_PROG2);	break;
+			}
+			break;
+		case 0xfb11: /* S17 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F17);	break;
+			case 2: ms_input_event(KEY_F23);	break;
+			case 3: ms_input_event(KEY_PROG3);	break;
+			}
+			break;
+		case 0xfb12: /* S18 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F18);	break;
+			case 2: ms_input_event(KEY_F24);	break;
+			case 3: ms_input_event(KEY_PROG4);	break;
+			}
+			break;
+		case 0xfb13: /* S19 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F13);	break;
+			case 2: ms_input_event(KEY_F19);	break;
+			case 3: ms_input_event(KEY_WWW);	break;
+			}
+			break;
+		case 0xfb14: /* S20 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F14);	break;
+			case 2: ms_input_event(KEY_F20);	break;
+			case 3: ms_input_event(KEY_MAIL);	break;
+			}
+			break;
+		case 0xfb15: /* S21 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F15);	break;
+			case 2: ms_input_event(KEY_F21);	break;
+			case 3: ms_input_event(KEY_PROG1);	break;
+			}
+			break;
+		case 0xfb16: /* S22 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F16);	break;
+			case 2: ms_input_event(KEY_F22);	break;
+			case 3: ms_input_event(KEY_PROG2);	break;
+			}
+			break;
+		case 0xfb17: /* S23 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F17);	break;
+			case 2: ms_input_event(KEY_F23);	break;
+			case 3: ms_input_event(KEY_PROG3);	break;
+			}
+			break;
+		case 0xfb18: /* S24 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F18);	break;
+			case 2: ms_input_event(KEY_F24);	break;
+			case 3: ms_input_event(KEY_PROG4);	break;
+			}
+			break;
+		case 0xfb19: /* S25 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F13);	break;
+			case 2: ms_input_event(KEY_F19);	break;
+			case 3: ms_input_event(KEY_WWW);	break;
+			}
+			break;
+		case 0xfb1a: /* S26 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F14);	break;
+			case 2: ms_input_event(KEY_F20);	break;
+			case 3: ms_input_event(KEY_MAIL);	break;
+			}
+			break;
+		case 0xfb1b: /* S27 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F15);	break;
+			case 2: ms_input_event(KEY_F21);	break;
+			case 3: ms_input_event(KEY_PROG1);	break;
+			}
+			break;
+		case 0xfb1c: /* S28 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F16);	break;
+			case 2: ms_input_event(KEY_F22);	break;
+			case 3: ms_input_event(KEY_PROG2);	break;
+			}
+			break;
+		case 0xfb1d: /* S29 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F17);	break;
+			case 2: ms_input_event(KEY_F23);	break;
+			case 3: ms_input_event(KEY_PROG3);	break;
+			}
+			break;
+		case 0xfb1e: /* S30 */
+			switch (sidewinder->profile) {
+			case 1: ms_input_event(KEY_F18);	break;
+			case 2: ms_input_event(KEY_F24);	break;
+			case 3: ms_input_event(KEY_PROG4);	break;
 			}
 			break;
 		case 0xfd11:
-			if (value) {
+			if (value) {	/* Run this only once on a keypress */
 				__u8 numpad = sidewinder->status ^ (0x01);	/* Toggle Macro Pad */
-
-				ms_sidewinder_set_leds(hdev, numpad);
+				ms_sidewinder_control(hdev, numpad);
 			}
 			break;
-		case 0xfd12: input_event(input, usage->type, KEY_MACRO, value);	break;
+		case 0xfd12: ms_input_event(KEY_MACRO);	break;
 		case 0xfd15:
-			if (value) {
+			if (value) {	/* Run this only once on a keypress */
 				__u8 leds = sidewinder->status & ~(0x1c);	/* Clear Profile LEDs */
-
 				if (sidewinder->profile < 1 || sidewinder->profile >= 3) {
 					sidewinder->profile = 1;
 				} else
 					sidewinder->profile++;
 
 				leds |= 0x02 << sidewinder->profile;	/* Set Profile LEDs */
-				ms_sidewinder_set_leds(hdev, leds);
+				ms_sidewinder_control(hdev, leds);
 			}
 			break;
-		default:
-			return 0;
 		}
 
 		return 1;
@@ -510,6 +783,7 @@ static int ms_event(struct hid_device *hdev, struct hid_field *field,
 
 	return 0;
 }
+#undef ms_input_event
 
 static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
