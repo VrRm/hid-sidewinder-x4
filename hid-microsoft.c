@@ -16,8 +16,8 @@
  */
 
 #include <linux/device.h>
-#include <linux/hid.h>
 #include <linux/input.h>
+#include <linux/hid.h>
 #include <linux/module.h>
 #include <linux/sysfs.h>
 #include <linux/usb.h>
@@ -98,6 +98,7 @@ static int ms_ergonomy_kb_quirk(struct hid_input *hi, struct hid_usage *usage,
 		set_bit(KEY_F16, input->keybit);
 		set_bit(KEY_F17, input->keybit);
 		set_bit(KEY_F18, input->keybit);
+		break;
 	default:
 		return 0;
 	}
@@ -307,7 +308,7 @@ static ssize_t ms_sidewinder_auto_show(struct device *dev,
 	struct ms_data *sc = hid_get_drvdata(hdev);
 	struct ms_sidewinder_extra *sidewinder = sc->extra;
 
-	return snprintf(buf, PAGE_SIZE, "%1d\n", sidewinder->status & 0x02);	/* Check if Auto LED bit is set */
+	return snprintf(buf, PAGE_SIZE, "%1d\n", (sidewinder->status & 0x02) >> 1);	/* Check if Auto LED bit is set */
 }
 
 static ssize_t ms_sidewinder_auto_store(struct device *dev,
@@ -324,7 +325,8 @@ static ssize_t ms_sidewinder_auto_store(struct device *dev,
 
 	if (auto_led == 0 || auto_led == 1) {
 		leds = sidewinder->status & ~(0x02);	/* Clear Auto LED */
-		leds |= 0x02 & auto_led;
+		if (auto_led)
+			leds |= 0x02;
 		ms_sidewinder_control(hdev, leds);
 		return strnlen(buf, PAGE_SIZE);
 	} else
@@ -357,14 +359,16 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 	if ((usage->hid & HID_USAGE_PAGE) != HID_UP_MSVENDOR)
 		return 0;
 
-	if ((sc->quirks & MS_ERGONOMY) &&
-			ms_ergonomy_kb_quirk(hi, usage, bit, max))
-		return 1;
+	if (sc->quirks & MS_ERGONOMY) {
+		int ret = ms_ergonomy_kb_quirk(hi, usage, bit, max);
+		if (ret)
+			return ret;
+	}
 
 	if ((sc->quirks & MS_PRESENTER) &&
 			ms_presenter_8k_quirk(hi, usage, bit, max))
 		return 1;
-		
+
 	if ((sc->quirks & MS_SIDEWINDER) &&
 			ms_sidewinder_kb_quirk(hi, usage, bit, max))
 		return 1;
@@ -558,6 +562,10 @@ static const struct hid_device_id ms_devices[] = {
 		.driver_data = MS_NOGET },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_COMFORT_MOUSE_4500),
 		.driver_data = MS_DUPLICATE_USAGES },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_TYPE_COVER_2),
+		.driver_data = 0 },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_TOUCH_COVER_2),
+		.driver_data = 0 },
 
 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_PRESENTER_8K_BT),
 		.driver_data = MS_PRESENTER },
